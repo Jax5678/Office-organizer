@@ -672,6 +672,7 @@ function ProjectRegister() {
   const [expandedSub, setExpandedSub] = useState({});
   const [section, setSection] = useState('register');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [selectedSchemeId, setSelectedSchemeId] = useState(null);
   const [activeTab, setActiveTab] = useState('documents');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -898,8 +899,11 @@ function ProjectRegister() {
   }, [selectedProjectId, activeTab, fileIndex]);
 
   async function capturePhotos(projectId, fileList) {
+    const filesArr = Array.from(fileList || []);
+    if (!filesArr.length) return { savedCount: 0, locOk: false };
     setBusyMsg('Getting location…');
-    const loc = await getLocation();
+    let loc = { ok: false, reason: 'Location check failed.' };
+    try { loc = await getLocation(); } catch (locErr) { console.error('getLocation threw:', locErr); }
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -911,8 +915,9 @@ function ProjectRegister() {
     setBusyMsg('Saving photo…');
     let savedCount = 0;
     const failures = [];
-    for (const file of Array.from(fileList)) {
+    for (const file of filesArr) {
       try {
+        if (!file || !file.size) { failures.push((file && file.name) || 'photo (empty file)'); continue; }
         const raw = await loadAnyFile(file);
         let dataToSave = raw;
         let mime = file.type || 'image/jpeg';
@@ -1095,7 +1100,7 @@ function ProjectRegister() {
 
                 return (
                   <div key={scheme.id} style={{ marginBottom: 6 }}>
-                    <button onClick={() => setExpanded((prev) => ({ ...prev, [scheme.id]: !prev[scheme.id] }))}
+                    <button onClick={() => { setExpanded((prev) => ({ ...prev, [scheme.id]: !prev[scheme.id] })); setSelectedSchemeId(scheme.id); setSelectedProjectId(null); }}
                       className="row-hover" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '7px 6px', textAlign: 'left' }}>
                       {isOpen ? <ChevronDown size={15} color={C.inkSoft} /> : <ChevronRight size={15} color={C.inkSoft} />}
                       <span style={{ width: 9, height: 9, borderRadius: 3, background: sColor, flexShrink: 0 }} />
@@ -1193,9 +1198,7 @@ function ProjectRegister() {
 
             {/* ---- main ---- */}
             <div style={{ flex: 1, padding: '18px 22px', minWidth: 0 }}>
-              {!selectedProject ? (
-                <EmptyState hasProjects={projects.length > 0} />
-              ) : (
+              {selectedProject ? (
                 <ProjectPanel
                   project={selectedProject}
                   scheme={schemes.find((s) => s.id === selectedProject.schemeId)}
@@ -1210,6 +1213,14 @@ function ProjectRegister() {
                   grievances={grievances[selectedProject.id] || []} onAddGrievance={(entry) => addGrievance(selectedProject.id, entry)}
                   onUpdateGrievance={(id, patch) => updateGrievance(selectedProject.id, id, patch)} onDeleteGrievance={(id) => deleteGrievance(selectedProject.id, id)}
                 />
+              ) : selectedSchemeId && schemes.find((s) => s.id === selectedSchemeId) ? (
+                <SchemeOverview
+                  scheme={schemes.find((s) => s.id === selectedSchemeId)}
+                  subSchemes={subSchemes} projects={projects}
+                  onSelectProject={(id) => setSelectedProjectId(id)}
+                />
+              ) : (
+                <EmptyState hasProjects={projects.length > 0} />
               )}
             </div>
           </>
@@ -1265,6 +1276,55 @@ function EmptyState({ hasProjects }) {
           ? 'Choose a project from the register on the left to see its documents, progress reports, photographs, site visit log and grievances.'
           : 'Open a scheme in the left panel, add a sub-scheme if it has one (like MMSY), then add your first project — a road, bridge or building work.'}
       </div>
+    </div>
+  );
+}
+
+function SchemeOverview({ scheme, subSchemes, projects, onSelectProject }) {
+  const schemeProjects = projects.filter((p) => p.schemeId === scheme.id);
+  const grouped = groupProjectsByYear(schemeProjects);
+  return (
+    <div>
+      <div style={{ fontSize: 20, fontWeight: 700 }}>{scheme.name} — All Projects</div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginTop: 4 }}>
+        {schemeProjects.length} project{schemeProjects.length !== 1 ? 's' : ''}{grouped.length ? ` across ${grouped.length} financial year${grouped.length !== 1 ? 's' : ''}` : ''}
+      </div>
+
+      {schemeProjects.length === 0 ? (
+        <div style={{ color: C.khaki, fontSize: 13, marginTop: 24 }}>No projects filed under this scheme yet — use "+ Add project" in the left panel to start.</div>
+      ) : (
+        <div style={{ marginTop: 18 }}>
+          {grouped.map(([yr, plist]) => (
+            <div key={yr} style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 13, color: C.navy, borderBottom: `1px solid ${C.line}`, paddingBottom: 5, marginBottom: 10 }}>
+                {yr === 'Unspecified' ? 'No financial year specified' : `FY ${yr}`} <span style={{ color: C.khaki, fontWeight: 500 }}>· {plist.length}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                {plist.map((proj) => {
+                  const sub = subSchemes.find((s) => s.id === proj.subSchemeId);
+                  const TypeIcon = PROJECT_TYPE_ICONS[proj.type] || HelpCircle;
+                  const done = proj.status === 'Completed';
+                  return (
+                    <button key={proj.id} onClick={() => onSelectProject(proj.id)} className="card row-hover"
+                      style={{ textAlign: 'left', cursor: 'pointer', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <TypeIcon size={15} color={done ? C.success : C.warning} style={{ flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600, fontSize: 13.5, color: C.ink }}>{proj.name}</span>
+                      </div>
+                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.inkSoft }}>
+                        {sub ? `${sub.name} · ` : ''}{proj.type}{proj.location ? ` · ${proj.location}` : ''}
+                      </div>
+                      <span className={`status-pill ${done ? 'status-pill-done' : 'status-pill-ongoing'}`} style={{ alignSelf: 'flex-start', fontSize: 10.5, padding: '3px 8px' }}>
+                        {done ? 'Completed' : 'Ongoing'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1560,7 +1620,15 @@ function PhotosTab({ projectId, files, photoBlobs, onCapturePhotos, onDeleteFile
 
   async function handleCapture(fileList) {
     setCapturing(true);
-    await onCapturePhotos(projectId, fileList);
+    try {
+      const result = await onCapturePhotos(projectId, fileList);
+      if (result && result.savedCount === 0) {
+        alert('No photo was saved. This can happen if the camera app returned no image, or if the file was empty. Please try again — if it keeps happening, try "Upload from gallery" instead: take the photo with your phone\'s normal camera app first, then attach it from there.');
+      }
+    } catch (e) {
+      console.error('Photo capture failed:', e);
+      alert('Something went wrong saving the photo: ' + (e && e.message ? e.message : 'unknown error') + '. Please try again, or use "Upload from gallery" as a workaround.');
+    }
     setCapturing(false);
   }
 
