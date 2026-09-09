@@ -1049,7 +1049,6 @@ function ProjectRegister() {
   return (
     <div style={{ fontFamily: FONT_SANS, background: C.paper, color: C.ink, minHeight: 600, display: 'flex', flexDirection: 'column' }}>
       <style>{FONT_IMPORT}{GLOBAL_CSS}</style>
-      <datalist id="fy-options">{fyOptionsList().map((y) => <option key={y} value={y} />)}</datalist>
       <div style={{ height: 3, background: C.rust }} />
 
       {/* ---- header ---- */}
@@ -1282,45 +1281,67 @@ function EmptyState({ hasProjects }) {
 
 function SchemeOverview({ scheme, subSchemes, projects, onSelectProject }) {
   const schemeProjects = projects.filter((p) => p.schemeId === scheme.id);
-  const grouped = groupProjectsByYear(schemeProjects);
+  const schemeSubs = subSchemes.filter((ss) => ss.schemeId === scheme.id);
+
+  const groups = schemeSubs.map((sub) => ({
+    key: sub.id, label: sub.name, projects: schemeProjects.filter((p) => p.subSchemeId === sub.id),
+  }));
+  const generalProjects = schemeProjects.filter((p) => !p.subSchemeId);
+  if (generalProjects.length || schemeSubs.length === 0) {
+    groups.push({ key: 'general', label: schemeSubs.length ? 'General (no sub-scheme)' : null, projects: generalProjects });
+  }
+  const visibleGroups = groups.filter((g) => g.projects.length > 0);
+
+  function ProjectCard({ proj }) {
+    const sub = subSchemes.find((s) => s.id === proj.subSchemeId);
+    const TypeIcon = PROJECT_TYPE_ICONS[proj.type] || HelpCircle;
+    const done = proj.status === 'Completed';
+    return (
+      <button onClick={() => onSelectProject(proj.id)} className="card row-hover"
+        style={{ textAlign: 'left', cursor: 'pointer', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TypeIcon size={15} color={done ? C.success : C.warning} style={{ flexShrink: 0 }} />
+          <span style={{ fontWeight: 600, fontSize: 13.5, color: C.ink }}>{proj.name}</span>
+        </div>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.inkSoft }}>
+          {sub ? `${sub.name} · ` : ''}{proj.type}{proj.location ? ` · ${proj.location}` : ''}
+        </div>
+        <span className={`status-pill ${done ? 'status-pill-done' : 'status-pill-ongoing'}`} style={{ alignSelf: 'flex-start', fontSize: 10.5, padding: '3px 8px' }}>
+          {done ? 'Completed' : 'Ongoing'}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div>
       <div style={{ fontSize: 20, fontWeight: 700 }}>{scheme.name} — All Projects</div>
       <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginTop: 4 }}>
-        {schemeProjects.length} project{schemeProjects.length !== 1 ? 's' : ''}{grouped.length ? ` across ${grouped.length} financial year${grouped.length !== 1 ? 's' : ''}` : ''}
+        {schemeProjects.length} project{schemeProjects.length !== 1 ? 's' : ''}{schemeSubs.length ? ` across ${schemeSubs.length} sub-scheme${schemeSubs.length !== 1 ? 's' : ''}` : ''}
       </div>
 
       {schemeProjects.length === 0 ? (
         <div style={{ color: C.khaki, fontSize: 13, marginTop: 24 }}>No projects filed under this scheme yet — use "+ Add project" in the left panel to start.</div>
       ) : (
         <div style={{ marginTop: 18 }}>
-          {grouped.map(([yr, plist]) => (
-            <div key={yr} style={{ marginBottom: 22 }}>
-              <div style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 13, color: C.navy, borderBottom: `1px solid ${C.line}`, paddingBottom: 5, marginBottom: 10 }}>
-                {yr === 'Unspecified' ? 'No financial year specified' : `FY ${yr}`} <span style={{ color: C.khaki, fontWeight: 500 }}>· {plist.length}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-                {plist.map((proj) => {
-                  const sub = subSchemes.find((s) => s.id === proj.subSchemeId);
-                  const TypeIcon = PROJECT_TYPE_ICONS[proj.type] || HelpCircle;
-                  const done = proj.status === 'Completed';
-                  return (
-                    <button key={proj.id} onClick={() => onSelectProject(proj.id)} className="card row-hover"
-                      style={{ textAlign: 'left', cursor: 'pointer', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <TypeIcon size={15} color={done ? C.success : C.warning} style={{ flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, fontSize: 13.5, color: C.ink }}>{proj.name}</span>
-                      </div>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.inkSoft }}>
-                        {sub ? `${sub.name} · ` : ''}{proj.type}{proj.location ? ` · ${proj.location}` : ''}
-                      </div>
-                      <span className={`status-pill ${done ? 'status-pill-done' : 'status-pill-ongoing'}`} style={{ alignSelf: 'flex-start', fontSize: 10.5, padding: '3px 8px' }}>
-                        {done ? 'Completed' : 'Ongoing'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+          {visibleGroups.map((g) => (
+            <div key={g.key} style={{ marginBottom: 28 }}>
+              {g.label && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.line}` }}>
+                  <Folder size={15} color={C.navy} /> {g.label}
+                  <span style={{ fontFamily: FONT_MONO, fontWeight: 500, fontSize: 11, color: C.khaki }}>· {g.projects.length}</span>
+                </div>
+              )}
+              {groupProjectsByYear(g.projects).map(([yr, plist]) => (
+                <div key={yr} style={{ marginBottom: 18, marginLeft: g.label ? 10 : 0 }}>
+                  <div style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 12.5, color: C.inkSoft, borderBottom: `1px solid ${C.lineSoft}`, paddingBottom: 4, marginBottom: 8 }}>
+                    {yr === 'Unspecified' ? 'No financial year specified' : `FY ${yr}`} <span style={{ color: C.khaki, fontWeight: 500 }}>· {plist.length}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                    {plist.map((proj) => <ProjectCard key={proj.id} proj={proj} />)}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -1384,6 +1405,29 @@ function AddSchemeForm({ onCancel, onSave }) {
   );
 }
 
+function FYSelect({ value, onChange, style }) {
+  const options = fyOptionsList();
+  const inList = options.includes(value);
+  const [manual, setManual] = useState(value !== '' && !inList);
+
+  if (manual) {
+    return (
+      <div style={{ display: 'flex', gap: 4 }}>
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="2026-27" className="input" style={style} />
+        <button type="button" onClick={() => setManual(false)} className="btn-ghost" style={{ padding: '0 9px', fontSize: 11, whiteSpace: 'nowrap' }}>List</button>
+      </div>
+    );
+  }
+  return (
+    <select value={inList ? value : ''} className="input" style={style}
+      onChange={(e) => { if (e.target.value === '__custom__') setManual(true); else onChange(e.target.value); }}>
+      {!inList && <option value="" disabled>Select a year…</option>}
+      {options.map((y) => <option key={y} value={y}>{y}</option>)}
+      <option value="__custom__">Other (type manually)…</option>
+    </select>
+  );
+}
+
 function AddProjectForm({ onCancel, onSave, schemeName }) {
   const autoType = inferTypeFromScheme(schemeName);
   const [name, setName] = useState('');
@@ -1404,7 +1448,7 @@ function AddProjectForm({ onCancel, onSave, schemeName }) {
         </select>
       )}
       <label style={{ ...labelStyle, marginTop: 8 }}>Financial year</label>
-      <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026-27" className="input" list="fy-options" />
+      <FYSelect value={year} onChange={setYear} />
       <label style={{ ...labelStyle, marginTop: 8 }}>Constituency</label>
       <select value={constituency} onChange={(e) => setConstituency(e.target.value)} className="input">
         {CONSTITUENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1440,7 +1484,7 @@ function EditProjectForm({ project, scheme, onCancel, onSave }) {
         </select>
       )}
       <label style={{ ...labelStyle, marginTop: 8 }}>Financial year</label>
-      <input value={year} onChange={(e) => setYear(e.target.value)} className="input" list="fy-options" />
+      <FYSelect value={year} onChange={setYear} />
       <label style={{ ...labelStyle, marginTop: 8 }}>Constituency</label>
       <select value={constituency} onChange={(e) => setConstituency(e.target.value)} className="input">
         {CONSTITUENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -2019,7 +2063,7 @@ function ProposalsSection({ kind, entries, schemes, subSchemes, onAdd, onOpenFil
 
       <div className="card">
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div><label style={labelStyle}>Financial year</label><input value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2026-27" className="input" style={{ width: 100 }} list="fy-options" /></div>
+          <div><label style={labelStyle}>Financial year</label><FYSelect value={fy} onChange={setFy} style={{ width: 130 }} /></div>
           <div><label style={labelStyle}>Scheme{isAmp ? ' (optional)' : ''}</label>
             <select value={schemeId} onChange={(e) => { setSchemeId(e.target.value); setSubSchemeId(''); }} className="input" style={{ width: 150 }}>
               <option value="">{isAmp ? 'General' : 'Select scheme'}</option>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'site-register-v1';
+const CACHE_NAME = 'site-register-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,8 +27,35 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// The app's own files (index.html, manifest.json) use network-first, so any
+// update you upload is picked up the next time the phone is online — the
+// cached copy is only used as an offline fallback. The large third-party
+// libraries (React, Babel, XLSX) rarely change, so those stay cache-first
+// for speed.
+function isAppShellDoc(request) {
+  if (request.mode === 'navigate') return true;
+  const url = request.url;
+  return url.endsWith('/') || url.endsWith('/index.html') || url.endsWith('/manifest.json');
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  if (isAppShellDoc(event.request)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
