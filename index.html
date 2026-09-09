@@ -217,19 +217,30 @@ const AlertTriangle = makeIcon([
 /* ---------------------------------- theme ---------------------------------- */
 
 const C = {
-  paper: '#EDEFE6',
-  paperDark: '#E2E5D8',
-  ink: '#212B21',
-  inkSoft: '#525B4C',
-  navy: '#2C3B57',
-  navySoft: '#43567B',
-  rust: '#BC4310',
-  rustSoft: '#D97A46',
-  khaki: '#83886D',
-  line: '#C9CDBB',
-  lineSoft: '#DCDFD0',
-  card: '#FAF9F2',
+  paper: '#F3F5F8',
+  paperDark: '#EAEEF3',
+  ink: '#1F2937',
+  inkSoft: '#5B6472',
+  navy: '#0B3D62',
+  navySoft: '#3B6A8C',
+  rust: '#2563EB',
+  rustSoft: '#3B82F6',
+  khaki: '#8A93A3',
+  line: '#DBE0E7',
+  lineSoft: '#EEF1F5',
+  card: '#FFFFFF',
+  danger: '#DC2626',
+  dangerSoft: 'rgba(220,38,38,0.12)',
+  success: '#16A34A',
+  successSoft: 'rgba(22,163,74,0.12)',
+  warning: '#D97706',
+  warningSoft: 'rgba(217,119,6,0.12)',
+  sidebar: '#0B3D62',
+  sidebarSoft: '#12507F',
 };
+
+const SCHEME_PALETTE = ['#0B3D62', '#2563EB', '#16A34A', '#D97706', '#7C3AED', '#0E7490', '#C2410C', '#4338CA'];
+function schemeColor(index) { return SCHEME_PALETTE[index % SCHEME_PALETTE.length]; }
 
 const FONT_SANS = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
 const FONT_MONO = '"IBM Plex Mono", ui-monospace, "SF Mono", monospace';
@@ -238,7 +249,7 @@ const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=IBM+P
 const GLOBAL_CSS = `
   .card { background:${C.card}; border:1px solid ${C.line}; border-radius:8px; padding:14px; box-shadow:0 1px 3px rgba(33,43,33,0.06); }
   .input { width:100%; padding:7px 9px; font-size:13px; font-family:${FONT_SANS}; border:1px solid ${C.line}; border-radius:5px; background:#fff; color:${C.ink}; outline:none; box-sizing:border-box; transition:border-color .15s ease, box-shadow .15s ease; }
-  .input:focus { border-color:${C.navy}; box-shadow:0 0 0 3px rgba(44,59,87,0.12); }
+  .input:focus { border-color:${C.rust}; box-shadow:0 0 0 3px rgba(37,99,235,0.15); }
   .btn-primary { display:inline-flex; align-items:center; padding:8px 14px; font-size:12.5px; font-weight:600; background:${C.rust}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; transition:background .15s ease, transform .1s ease; }
   .btn-primary:hover { background:${C.rustSoft}; }
   .btn-primary:active { transform:scale(0.98); }
@@ -247,9 +258,9 @@ const GLOBAL_CSS = `
   .icon-btn { background:none; border:none; cursor:pointer; color:${C.inkSoft}; padding:5px; display:flex; align-items:center; border-radius:5px; transition:all .15s ease; }
   .icon-btn:hover { background:${C.paperDark}; color:${C.ink}; }
   .icon-btn-delete { background:none; border:none; cursor:pointer; color:${C.inkSoft}; padding:5px; display:flex; align-items:center; border-radius:5px; transition:all .15s ease; }
-  .icon-btn-delete:hover { background:rgba(188,67,16,0.14); color:${C.rust}; }
-  .icon-btn-armed { display:flex; align-items:center; gap:4px; background:${C.rust}; color:#fff; border:none; padding:4px 9px; border-radius:5px; font-size:10.5px; font-weight:700; cursor:pointer; animation:pulseBtn 0.9s ease-in-out infinite alternate; white-space:nowrap; }
-  .btn-danger-armed { display:inline-flex; align-items:center; padding:7px 12px; font-size:12.5px; font-weight:700; background:${C.rust}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; animation:pulseBtn 0.9s ease-in-out infinite alternate; }
+  .icon-btn-delete:hover { background:${C.dangerSoft}; color:${C.danger}; }
+  .icon-btn-armed { display:flex; align-items:center; gap:4px; background:${C.danger}; color:#fff; border:none; padding:4px 9px; border-radius:5px; font-size:10.5px; font-weight:700; cursor:pointer; animation:pulseBtn 0.9s ease-in-out infinite alternate; white-space:nowrap; }
+  .btn-danger-armed { display:inline-flex; align-items:center; padding:7px 12px; font-size:12.5px; font-weight:700; background:${C.danger}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; animation:pulseBtn 0.9s ease-in-out infinite alternate; }
   @keyframes pulseBtn { from{opacity:1;} to{opacity:.68;} }
   .row-hover { transition:background .12s ease; border-radius:5px; }
   .row-hover:hover { background:${C.paperDark}; }
@@ -260,8 +271,8 @@ const GLOBAL_CSS = `
   .tab-btn:hover { background:${C.paperDark}; }
   .tab-btn-active, .tab-btn-active:hover { background:${C.ink}; color:${C.paper}; }
   .status-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid transparent; font-family:${FONT_SANS}; transition:all .15s ease; }
-  .status-pill-ongoing { background:rgba(188,67,16,0.12); color:${C.rust}; }
-  .status-pill-done { background:rgba(44,59,87,0.12); color:${C.navy}; }
+  .status-pill-ongoing { background:${C.warningSoft}; color:${C.warning}; }
+  .status-pill-done { background:${C.successSoft}; color:${C.success}; }
   .abstract-table { border-collapse:collapse; width:100%; margin-top:10px; font-size:12.5px; }
   .abstract-table th { text-align:left; font-family:${FONT_MONO}; font-size:11px; color:${C.inkSoft}; padding:5px 10px; border-bottom:1px solid ${C.line}; }
   .abstract-table td { padding:6px 10px; border-bottom:1px solid ${C.lineSoft}; font-family:${FONT_MONO}; }
@@ -541,7 +552,7 @@ function ConfirmDelete({ onConfirm, variant = 'icon', label = 'Delete' }) {
 
   if (variant === 'button') {
     return (
-      <button onClick={handleClick} className={armed ? 'btn-danger-armed' : 'btn-ghost'} style={!armed ? { color: C.rust, borderColor: C.rust } : undefined}>
+      <button onClick={handleClick} className={armed ? 'btn-danger-armed' : 'btn-ghost'} style={!armed ? { color: C.danger, borderColor: C.danger } : undefined}>
         <Trash2 size={13} style={{ marginRight: 5 }} /> {armed ? 'Click again to confirm' : label}
       </button>
     );
@@ -886,18 +897,18 @@ function ProjectRegister() {
       <div style={{ height: 3, background: C.rust }} />
 
       {/* ---- header ---- */}
-      <div style={{ borderBottom: `2px solid ${C.ink}`, background: C.paper, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: C.sidebar, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 8px rgba(11,61,98,0.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => setSidebarOpen((s) => !s)} className="md-hide icon-btn" style={{ color: C.ink }}><Menu size={20} /></button>
+          <button onClick={() => setSidebarOpen((s) => !s)} className="md-hide icon-btn" style={{ color: '#fff' }}><Menu size={20} /></button>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>Site &amp; Project Register</div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.inkSoft, marginTop: 2 }}>
+            <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em', color: '#fff' }}>Site &amp; Project Register</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
               {schemes.length} scheme{schemes.length !== 1 ? 's' : ''} · {projects.length} project{projects.length !== 1 ? 's' : ''}
             </div>
           </div>
         </div>
         {busyMsg && (
-          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.rust, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: '#FDE68A', display: 'flex', alignItems: 'center', gap: 6 }}>
             <Loader2 size={13} className="animate-spin" /> {busyMsg}
           </div>
         )}
@@ -921,7 +932,8 @@ function ProjectRegister() {
           <>
             {/* ---- sidebar ---- */}
             <div className="sidebar" style={{ width: 280, flexShrink: 0, borderRight: `1px solid ${C.line}`, background: C.paperDark, padding: '14px 10px', display: sidebarOpen ? 'block' : undefined, overflowY: 'auto' }}>
-              {schemes.map((scheme) => {
+              {schemes.map((scheme, schemeIdx) => {
+                const sColor = schemeColor(schemeIdx);
                 const schemeSubs = subSchemes.filter((ss) => ss.schemeId === scheme.id);
                 const isOpen = !!expanded[scheme.id];
                 const directProjects = projects.filter((p) => p.schemeId === scheme.id && !p.subSchemeId);
@@ -931,9 +943,10 @@ function ProjectRegister() {
                   <div key={scheme.id} style={{ marginBottom: 6 }}>
                     <button onClick={() => setExpanded((prev) => ({ ...prev, [scheme.id]: !prev[scheme.id] }))}
                       className="row-hover" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '7px 6px', textAlign: 'left' }}>
-                      {isOpen ? <ChevronDown size={15} color={C.navy} /> : <ChevronRight size={15} color={C.navy} />}
-                      <FolderOpen size={14} color={C.navy} />
-                      <span style={{ fontFamily: FONT_MONO, fontWeight: 600, fontSize: 13, color: C.navy, letterSpacing: '0.02em' }}>{scheme.name}</span>
+                      {isOpen ? <ChevronDown size={15} color={C.inkSoft} /> : <ChevronRight size={15} color={C.inkSoft} />}
+                      <span style={{ width: 9, height: 9, borderRadius: 3, background: sColor, flexShrink: 0 }} />
+                      <FolderOpen size={14} color={sColor} />
+                      <span style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 13, color: sColor, letterSpacing: '0.02em' }}>{scheme.name}</span>
                       <span style={{ marginLeft: 'auto', fontFamily: FONT_MONO, fontSize: 11, color: C.khaki }}>{totalInScheme}</span>
                     </button>
 
@@ -1100,14 +1113,14 @@ function ProjectRow({ proj, selected, onSelect }) {
       display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 8px', marginTop: 2,
       background: selected ? C.card : 'none', border: selected ? `1px solid ${C.line}` : '1px solid transparent', cursor: 'pointer',
     }}>
-      <TypeIcon size={13} color={done ? C.navy : C.rust} style={{ flexShrink: 0 }} />
+      <TypeIcon size={13} color={done ? C.success : C.warning} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft, marginTop: 1 }}>
           {proj.type}{proj.year ? ` · FY ${proj.year}` : ''}{proj.location ? ` · ${proj.location}` : ''}
         </div>
       </div>
-      <span title={done ? 'Completed' : 'Ongoing'} style={{ width: 7, height: 7, borderRadius: '50%', background: done ? C.navy : C.rust, flexShrink: 0 }} />
+      <span title={done ? 'Completed' : 'Ongoing'} style={{ width: 7, height: 7, borderRadius: '50%', background: done ? C.success : C.warning, flexShrink: 0 }} />
     </button>
   );
 }
@@ -1429,7 +1442,7 @@ function GrievanceTab({ grievances, onAdd, onUpdate, onDelete }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <select value={g.status}
                     onChange={(e) => onUpdate(g.id, { status: e.target.value, resolvedDate: e.target.value === 'Resolved' ? (g.resolvedDate || todayStr()) : null })}
-                    style={{ fontSize: 11.5, fontFamily: FONT_MONO, padding: '3px 6px', border: `1px solid ${g.status === 'Resolved' ? C.navy : C.rust}`, borderRadius: 5, color: g.status === 'Resolved' ? C.navy : C.rust, background: '#fff' }}>
+                    style={{ fontSize: 11.5, fontFamily: FONT_MONO, padding: '3px 6px', border: `1px solid ${g.status === 'Resolved' ? C.success : C.warning}`, borderRadius: 5, color: g.status === 'Resolved' ? C.success : C.warning, background: '#fff' }}>
                     {GRIEVANCE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ConfirmDelete onConfirm={() => onDelete(g.id)} label="Delete grievance" />
@@ -1548,10 +1561,10 @@ function AbstractSection({ schemes, subSchemes, projects, onDownload }) {
       </div>
 
       <div style={{ display: 'grid', gap: 16, marginTop: 16 }}>
-        {rows.map((r) => (
-          <div key={r.scheme.id} className="card" style={{ padding: 16 }}>
+        {rows.map((r, rIdx) => (
+          <div key={r.scheme.id} className="card" style={{ padding: 16, borderLeft: `4px solid ${schemeColor(rIdx)}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: schemeColor(rIdx) }}>
                 {r.scheme.name}{r.subCount > 0 && <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.khaki, fontWeight: 500 }}> · {r.subCount} sub-scheme{r.subCount !== 1 ? 's' : ''}</span>}
               </div>
               <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft }}>{r.total} total · {r.ongoing} ongoing · {r.completed} completed</div>
@@ -1566,8 +1579,8 @@ function AbstractSection({ schemes, subSchemes, projects, onDownload }) {
                     <tr key={y}>
                       <td>{y === 'Unspecified' ? '—' : `FY ${y}`}</td>
                       <td>{r.byYear[y].total}</td>
-                      <td style={{ color: C.rust }}>{r.byYear[y].ongoing}</td>
-                      <td style={{ color: C.navy }}>{r.byYear[y].completed}</td>
+                      <td style={{ color: C.warning }}>{r.byYear[y].ongoing}</td>
+                      <td style={{ color: C.success }}>{r.byYear[y].completed}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1730,7 +1743,7 @@ function ProposalsSection({ kind, entries, schemes, subSchemes, onAdd, onOpenFil
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 500 }}>{scheme ? scheme.name : 'General'}{sub ? ` · ${sub.name}` : ''}{e.projectType ? ` · ${e.projectType}` : ''}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, padding: '2px 8px', borderRadius: 20, border: `1px solid ${e.status === 'Approved' ? C.navy : C.rust}`, color: e.status === 'Approved' ? C.navy : C.rust }}>{e.status}</span>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, padding: '2px 8px', borderRadius: 20, border: `1px solid ${e.status === 'Approved' ? C.success : C.warning}`, color: e.status === 'Approved' ? C.success : C.warning }}>{e.status}</span>
                         <ConfirmDelete onConfirm={() => onDelete(e.id)} label="Delete entry" />
                       </div>
                     </div>
