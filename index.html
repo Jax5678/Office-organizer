@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Site & Project Register</title>
+<meta name="description" content="Offline-first project, document and site-visit register for road, bridge and building works." />
+<meta name="theme-color" content="#212B21" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Site Register" />
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#EDEFE6; }
+  #root { min-height:100vh; }
+  * { box-sizing:border-box; }
+  .animate-spin { animation: spin 1s linear infinite; display:inline-flex; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui,sans-serif;color:#525B4C;">
+    Loading Site &amp; Project Register…
+  </div>
+</div>
+
+<script type="text/babel" data-presets="react">
+
+/* ---- minimal hand-drawn icon set (replaces lucide-react for standalone build) ---- */
+const { useState, useEffect, useRef } = React;
+const h = React.createElement;
+
+function makeIcon(children) {
+  return function IconCmp(props) {
+    props = props || {};
+    const size = props.size || 16;
+    const color = props.color || 'currentColor';
+    return h('svg', {
+      width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+      stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+      style: props.style, className: props.className, title: props.title,
+    }, children);
+  };
+}
+
+const FileText = makeIcon([
+  h('path', { key: 1, d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+  h('polyline', { key: 2, points: '14 2 14 8 20 8' }),
+  h('line', { key: 3, x1: 8, y1: 13, x2: 16, y2: 13 }),
+  h('line', { key: 4, x1: 8, y1: 17, x2: 16, y2: 17 }),
+]);
+const FileIcon = makeIcon([
+  h('path', { key: 1, d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+  h('polyline', { key: 2, points: '14 2 14 8 20 8' }),
+]);
+const FileSpreadsheet = makeIcon([
+  h('path', { key: 1, d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+  h('polyline', { key: 2, points: '14 2 14 8 20 8' }),
+  h('line', { key: 3, x1: 8, y1: 12, x2: 16, y2: 12 }),
+  h('line', { key: 4, x1: 8, y1: 16, x2: 16, y2: 16 }),
+  h('line', { key: 5, x1: 11, y1: 12, x2: 11, y2: 19 }),
+]);
+const ImageIcon = makeIcon([
+  h('rect', { key: 1, x: 3, y: 3, width: 18, height: 18, rx: 2 }),
+  h('circle', { key: 2, cx: 8.5, cy: 8.5, r: 1.5 }),
+  h('path', { key: 3, d: 'M21 15l-5-5L5 21' }),
+]);
+const Camera = makeIcon([
+  h('path', { key: 1, d: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z' }),
+  h('circle', { key: 2, cx: 12, cy: 13, r: 4 }),
+]);
+const Upload = makeIcon([
+  h('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+  h('polyline', { key: 2, points: '17 8 12 3 7 8' }),
+  h('line', { key: 3, x1: 12, y1: 3, x2: 12, y2: 15 }),
+]);
+const Download = makeIcon([
+  h('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+  h('polyline', { key: 2, points: '7 10 12 15 17 10' }),
+  h('line', { key: 3, x1: 12, y1: 3, x2: 12, y2: 15 }),
+]);
+const MapPin = makeIcon([
+  h('path', { key: 1, d: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z' }),
+  h('circle', { key: 2, cx: 12, cy: 10, r: 3 }),
+]);
+const Plus = makeIcon([
+  h('line', { key: 1, x1: 12, y1: 5, x2: 12, y2: 19 }),
+  h('line', { key: 2, x1: 5, y1: 12, x2: 19, y2: 12 }),
+]);
+const X = makeIcon([
+  h('line', { key: 1, x1: 18, y1: 6, x2: 6, y2: 18 }),
+  h('line', { key: 2, x1: 6, y1: 6, x2: 18, y2: 18 }),
+]);
+const ChevronDown = makeIcon([h('polyline', { points: '6 9 12 15 18 9' })]);
+const ChevronRight = makeIcon([h('polyline', { points: '9 6 15 12 9 18' })]);
+const Trash2 = makeIcon([
+  h('polyline', { key: 1, points: '3 6 5 6 21 6' }),
+  h('path', { key: 2, d: 'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6' }),
+  h('path', { key: 3, d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
+  h('line', { key: 4, x1: 10, y1: 11, x2: 10, y2: 17 }),
+  h('line', { key: 5, x1: 14, y1: 11, x2: 14, y2: 17 }),
+]);
+const FolderOpen = makeIcon([
+  h('path', { d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z' }),
+]);
+const Folder = makeIcon([
+  h('path', { d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z' }),
+]);
+const FolderPlus = makeIcon([
+  h('path', { key: 1, d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z' }),
+  h('line', { key: 2, x1: 12, y1: 11, x2: 12, y2: 17 }),
+  h('line', { key: 3, x1: 9, y1: 14, x2: 15, y2: 14 }),
+]);
+const ClipboardList = makeIcon([
+  h('rect', { key: 1, x: 8, y: 2, width: 8, height: 4, rx: 1 }),
+  h('path', { key: 2, d: 'M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2' }),
+  h('line', { key: 3, x1: 9, y1: 12, x2: 15, y2: 12 }),
+  h('line', { key: 4, x1: 9, y1: 16, x2: 15, y2: 16 }),
+]);
+const Menu = makeIcon([
+  h('line', { key: 1, x1: 4, y1: 6, x2: 20, y2: 6 }),
+  h('line', { key: 2, x1: 4, y1: 12, x2: 20, y2: 12 }),
+  h('line', { key: 3, x1: 4, y1: 18, x2: 20, y2: 18 }),
+]);
+const Loader2 = makeIcon([h('path', { d: 'M12 3a9 9 0 1 0 9 9' })]);
+const User = makeIcon([
+  h('circle', { key: 1, cx: 12, cy: 8, r: 4 }),
+  h('path', { key: 2, d: 'M4 21c0-4 4-7 8-7s8 3 8 7' }),
+]);
+const CloudRain = makeIcon([
+  h('path', { key: 1, d: 'M17 15a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.5 1.5A4 4 0 0 0 7 16h10z' }),
+  h('line', { key: 2, x1: 8, y1: 19, x2: 8, y2: 21 }),
+  h('line', { key: 3, x1: 12, y1: 19, x2: 12, y2: 21 }),
+  h('line', { key: 4, x1: 16, y1: 19, x2: 16, y2: 21 }),
+]);
+const Eye = makeIcon([
+  h('path', { key: 1, d: 'M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z' }),
+  h('circle', { key: 2, cx: 12, cy: 12, r: 3 }),
+]);
+const Car = makeIcon([
+  h('path', { key: 1, d: 'M5 11l2-5h10l2 5' }),
+  h('rect', { key: 2, x: 3, y: 11, width: 18, height: 6, rx: 2 }),
+  h('circle', { key: 3, cx: 7, cy: 18.5, r: 1.6 }),
+  h('circle', { key: 4, cx: 17, cy: 18.5, r: 1.6 }),
+]);
+const CalendarCheck = makeIcon([
+  h('rect', { key: 1, x: 3, y: 4, width: 18, height: 18, rx: 2 }),
+  h('line', { key: 2, x1: 16, y1: 2, x2: 16, y2: 6 }),
+  h('line', { key: 3, x1: 8, y1: 2, x2: 8, y2: 6 }),
+  h('line', { key: 4, x1: 3, y1: 10, x2: 21, y2: 10 }),
+  h('polyline', { key: 5, points: '9 16 11 18 15 14' }),
+]);
+const MessageSquare = makeIcon([
+  h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-4.5 7.4 8.5 8.5 0 0 1-9-.4L3 21l1.9-5.7A8.38 8.38 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z' }),
+]);
+const BarChart3 = makeIcon([
+  h('line', { key: 1, x1: 3, y1: 3, x2: 3, y2: 21 }),
+  h('line', { key: 2, x1: 3, y1: 21, x2: 21, y2: 21 }),
+  h('rect', { key: 3, x: 7, y: 13, width: 3, height: 6 }),
+  h('rect', { key: 4, x: 12, y: 9, width: 3, height: 10 }),
+  h('rect', { key: 5, x: 17, y: 5, width: 3, height: 14 }),
+]);
+const TrendingUp = makeIcon([
+  h('polyline', { key: 1, points: '3 17 9 11 13 15 21 6' }),
+  h('polyline', { key: 2, points: '15 6 21 6 21 12' }),
+]);
+const Route = makeIcon([
+  h('circle', { key: 1, cx: 6, cy: 19, r: 2 }),
+  h('circle', { key: 2, cx: 18, cy: 5, r: 2 }),
+  h('path', { key: 3, d: 'M8 19h5a4 4 0 0 0 4-4V9a4 4 0 0 1 4-4' }),
+]);
+const Landmark = makeIcon([
+  h('polygon', { key: 1, points: '12 3 21 9 3 9' }),
+  h('line', { key: 2, x1: 4, y1: 21, x2: 20, y2: 21 }),
+  h('line', { key: 3, x1: 6, y1: 21, x2: 6, y2: 10 }),
+  h('line', { key: 4, x1: 10, y1: 21, x2: 10, y2: 10 }),
+  h('line', { key: 5, x1: 14, y1: 21, x2: 14, y2: 10 }),
+  h('line', { key: 6, x1: 18, y1: 21, x2: 18, y2: 10 }),
+]);
+const Building2 = makeIcon([
+  h('rect', { key: 1, x: 4, y: 2, width: 16, height: 20, rx: 1 }),
+  h('rect', { key: 2, x: 8, y: 6, width: 2, height: 2 }),
+  h('rect', { key: 3, x: 14, y: 6, width: 2, height: 2 }),
+  h('rect', { key: 4, x: 8, y: 11, width: 2, height: 2 }),
+  h('rect', { key: 5, x: 14, y: 11, width: 2, height: 2 }),
+  h('rect', { key: 6, x: 8, y: 16, width: 2, height: 2 }),
+  h('rect', { key: 7, x: 14, y: 16, width: 2, height: 2 }),
+]);
+const HelpCircle = makeIcon([
+  h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+  h('path', { key: 2, d: 'M9.1 9a3 3 0 1 1 5.82 1c-.5 1.5-2.4 1.5-2.9 3' }),
+  h('line', { key: 3, x1: 12, y1: 17, x2: 12, y2: 17.01 }),
+]);
+const CheckCircle2 = makeIcon([
+  h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+  h('polyline', { key: 2, points: '9 12 11 14 15 10' }),
+]);
+const Clock = makeIcon([
+  h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+  h('polyline', { key: 2, points: '12 6 12 12 16 14' }),
+]);
+const AlertTriangle = makeIcon([
+  h('path', { key: 1, d: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z' }),
+  h('line', { key: 2, x1: 12, y1: 9, x2: 12, y2: 13 }),
+  h('line', { key: 3, x1: 12, y1: 17, x2: 12, y2: 17.01 }),
+]);
+
+/* ---------------------------------- theme ---------------------------------- */
+
+const C = {
+  paper: '#EDEFE6',
+  paperDark: '#E2E5D8',
+  ink: '#212B21',
+  inkSoft: '#525B4C',
+  navy: '#2C3B57',
+  navySoft: '#43567B',
+  rust: '#BC4310',
+  rustSoft: '#D97A46',
+  khaki: '#83886D',
+  line: '#C9CDBB',
+  lineSoft: '#DCDFD0',
+  card: '#FAF9F2',
+};
+
+const FONT_SANS = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+const FONT_MONO = '"IBM Plex Mono", ui-monospace, "SF Mono", monospace';
+const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');`;
+
+const GLOBAL_CSS = `
+  .card { background:${C.card}; border:1px solid ${C.line}; border-radius:8px; padding:14px; box-shadow:0 1px 3px rgba(33,43,33,0.06); }
+  .input { width:100%; padding:7px 9px; font-size:13px; font-family:${FONT_SANS}; border:1px solid ${C.line}; border-radius:5px; background:#fff; color:${C.ink}; outline:none; box-sizing:border-box; transition:border-color .15s ease, box-shadow .15s ease; }
+  .input:focus { border-color:${C.navy}; box-shadow:0 0 0 3px rgba(44,59,87,0.12); }
+  .btn-primary { display:inline-flex; align-items:center; padding:8px 14px; font-size:12.5px; font-weight:600; background:${C.rust}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; transition:background .15s ease, transform .1s ease; }
+  .btn-primary:hover { background:${C.rustSoft}; }
+  .btn-primary:active { transform:scale(0.98); }
+  .btn-ghost { display:inline-flex; align-items:center; padding:7px 12px; font-size:12.5px; font-weight:600; background:transparent; color:${C.inkSoft}; border:1px solid ${C.line}; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; transition:all .15s ease; }
+  .btn-ghost:hover { background:${C.paperDark}; border-color:${C.khaki}; }
+  .icon-btn { background:none; border:none; cursor:pointer; color:${C.inkSoft}; padding:5px; display:flex; align-items:center; border-radius:5px; transition:all .15s ease; }
+  .icon-btn:hover { background:${C.paperDark}; color:${C.ink}; }
+  .icon-btn-delete { background:none; border:none; cursor:pointer; color:${C.inkSoft}; padding:5px; display:flex; align-items:center; border-radius:5px; transition:all .15s ease; }
+  .icon-btn-delete:hover { background:rgba(188,67,16,0.14); color:${C.rust}; }
+  .icon-btn-armed { display:flex; align-items:center; gap:4px; background:${C.rust}; color:#fff; border:none; padding:4px 9px; border-radius:5px; font-size:10.5px; font-weight:700; cursor:pointer; animation:pulseBtn 0.9s ease-in-out infinite alternate; white-space:nowrap; }
+  .btn-danger-armed { display:inline-flex; align-items:center; padding:7px 12px; font-size:12.5px; font-weight:700; background:${C.rust}; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:${FONT_SANS}; animation:pulseBtn 0.9s ease-in-out infinite alternate; }
+  @keyframes pulseBtn { from{opacity:1;} to{opacity:.68;} }
+  .row-hover { transition:background .12s ease; border-radius:5px; }
+  .row-hover:hover { background:${C.paperDark}; }
+  .nav-btn { display:flex; align-items:center; gap:6px; padding:10px 13px; background:none; border:none; cursor:pointer; font-size:12.5px; font-weight:600; color:${C.inkSoft}; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s ease; font-family:${FONT_SANS}; }
+  .nav-btn:hover { color:${C.ink}; }
+  .nav-btn-active { color:${C.rust}; border-bottom-color:${C.rust}; }
+  .tab-btn { display:flex; align-items:center; gap:6px; padding:9px 14px; cursor:pointer; font-size:13px; font-weight:600; font-family:${FONT_SANS}; background:transparent; color:${C.inkSoft}; border:none; border-radius:6px 6px 0 0; margin-bottom:-2px; transition:all .15s ease; }
+  .tab-btn:hover { background:${C.paperDark}; }
+  .tab-btn-active, .tab-btn-active:hover { background:${C.ink}; color:${C.paper}; }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid transparent; font-family:${FONT_SANS}; transition:all .15s ease; }
+  .status-pill-ongoing { background:rgba(188,67,16,0.12); color:${C.rust}; }
+  .status-pill-done { background:rgba(44,59,87,0.12); color:${C.navy}; }
+  .abstract-table { border-collapse:collapse; width:100%; margin-top:10px; font-size:12.5px; }
+  .abstract-table th { text-align:left; font-family:${FONT_MONO}; font-size:11px; color:${C.inkSoft}; padding:5px 10px; border-bottom:1px solid ${C.line}; }
+  .abstract-table td { padding:6px 10px; border-bottom:1px solid ${C.lineSoft}; font-family:${FONT_MONO}; }
+  .abstract-table tr:last-child td { border-bottom:none; }
+`;
+
+/* --------------------------------- constants -------------------------------- */
+
+const DOC_CATEGORIES = ['Estimate', 'Revised Estimate', 'Agreement', 'Letter Issued', 'Letter Received', 'EOT', 'Drawing', 'Other'];
+const PROJECT_TYPES = ['Road', 'Bridge', 'Building', 'Other'];
+const PROJECT_TYPE_ICONS = { Road: Route, Bridge: Landmark, Building: Building2, Other: HelpCircle };
+const GRIEVANCE_STATUSES = ['Pending', 'Resolved'];
+const PROPOSAL_STATUSES = ['Proposed', 'Approved'];
+const DEFAULT_SCHEMES = [
+  { id: 'pmgsy', name: 'PMGSY' },
+  { id: 'mmsy', name: 'MMSY' },
+  { id: 'bsy', name: 'BSY' },
+];
+const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
+const ACCEPT_DOC = '.pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv,application/pdf,image/*,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const ACCEPT_SHEET = '.xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const TABS = [
+  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'progress', label: 'Progress Reports', icon: ClipboardList },
+  { id: 'photos', label: 'Photographs', icon: Camera },
+  { id: 'sitelog', label: 'Site Visit Log', icon: MapPin },
+  { id: 'grievance', label: 'Grievances', icon: MessageSquare },
+];
+
+const NAV_SECTIONS = [
+  { id: 'register', label: 'Register', icon: FolderOpen },
+  { id: 'abstract', label: 'Abstract', icon: BarChart3 },
+  { id: 'monthly', label: 'Monthly Progress', icon: TrendingUp },
+  { id: 'fieldlog', label: 'Field Log', icon: Car },
+  { id: 'proposals', label: 'Proposals', icon: FolderPlus },
+  { id: 'amp', label: 'Maintenance Plan', icon: CalendarCheck },
+];
+
+/* ---------------------------------- helpers --------------------------------- */
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function currentFY() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const startYear = (d.getMonth() + 1) >= 4 ? y : y - 1;
+  return `${startYear}-${String(startYear + 1).slice(-2)}`;
+}
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00');
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function fmtBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function fileIcon(mimeType) {
+  if (!mimeType) return FileIcon;
+  if (mimeType.startsWith('image/')) return ImageIcon;
+  if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('csv')) return FileSpreadsheet;
+  return FileText;
+}
+
+const DB_NAME = 'siteRegisterDB';
+const STORE_NAME = 'kv';
+let dbPromise = null;
+function getDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+async function storageGet(key) {
+  try {
+    const db = await getDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).get(key);
+      req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { console.error(e); return null; }
+}
+async function storageSet(key, value) {
+  try {
+    const db = await getDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return true;
+  } catch (e) { console.error('storage set failed', key, e); return false; }
+}
+async function storageDelete(key) {
+  try {
+    const db = await getDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+function loadAnyFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function getLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  });
+}
+
+async function stampAndCompressImage(dataUrl, lines, maxWidth = 1500, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      if (lines && lines.length) {
+        const pad = Math.round(w * 0.022);
+        const fontSize = Math.max(13, Math.round(w * 0.026));
+        ctx.font = `${fontSize}px "IBM Plex Mono", monospace`;
+        ctx.textBaseline = 'alphabetic';
+        const lineHeight = fontSize * 1.4;
+        let maxLineW = 0;
+        lines.forEach((l) => { const mw = ctx.measureText(l).width; if (mw > maxLineW) maxLineW = mw; });
+        const boxWidth = Math.min(w, maxLineW + pad * 2);
+        const boxHeight = lineHeight * lines.length + pad * 0.8;
+        ctx.fillStyle = 'rgba(18,22,16,0.60)';
+        ctx.fillRect(0, h - boxHeight, boxWidth, boxHeight);
+        ctx.fillStyle = '#F2F1E4';
+        lines.forEach((line, i) => {
+          const y = h - pad * 0.4 - (lines.length - 1 - i) * lineHeight;
+          ctx.fillText(line, pad * 0.7, y);
+        });
+      }
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function downloadDataUrl(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename || 'file';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function buildAbstractWorkbook({ schemes, subSchemes, projects, fileIndex, fileMetas, siteLogs, grievances }) {
+  const wb = XLSX.utils.book_new();
+
+  const schemeRows = schemes.map((s) => {
+    const schemeProjects = projects.filter((p) => p.schemeId === s.id);
+    let docs = 0, photos = 0, progress = 0;
+    schemeProjects.forEach((p) => {
+      (fileIndex[p.id] || []).forEach((id) => {
+        const m = fileMetas[id]; if (!m) return;
+        if (m.section === 'document') docs++;
+        else if (m.section === 'photo') photos++;
+        else if (m.section === 'progress') progress++;
+      });
+    });
+    const logsCount = schemeProjects.reduce((sum, p) => sum + ((siteLogs[p.id] || []).length), 0);
+    const grievCount = schemeProjects.reduce((sum, p) => sum + ((grievances[p.id] || []).length), 0);
+    return {
+      Scheme: s.name,
+      'Sub-schemes': subSchemes.filter((ss) => ss.schemeId === s.id).map((ss) => ss.name).join(', '),
+      'Total Projects': schemeProjects.length,
+      Ongoing: schemeProjects.filter((p) => p.status !== 'Completed').length,
+      Completed: schemeProjects.filter((p) => p.status === 'Completed').length,
+      Documents: docs, 'Progress Reports': progress, Photographs: photos,
+      'Site Visits Logged': logsCount, Grievances: grievCount,
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(schemeRows), 'Scheme Abstract');
+
+  const yearRows = [];
+  schemes.forEach((s) => {
+    const schemeProjects = projects.filter((p) => p.schemeId === s.id);
+    const byYear = {};
+    schemeProjects.forEach((p) => {
+      const y = p.year || 'Unspecified';
+      byYear[y] = byYear[y] || { total: 0, ongoing: 0, completed: 0 };
+      byYear[y].total++;
+      if (p.status === 'Completed') byYear[y].completed++; else byYear[y].ongoing++;
+    });
+    Object.keys(byYear).sort().reverse().forEach((y) => {
+      yearRows.push({ Scheme: s.name, 'Financial Year': y, Total: byYear[y].total, Ongoing: byYear[y].ongoing, Completed: byYear[y].completed });
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(yearRows), 'Year-wise');
+
+  const projectRows = projects.map((p) => {
+    const scheme = schemes.find((s) => s.id === p.schemeId);
+    const sub = subSchemes.find((ss) => ss.id === p.subSchemeId);
+    const ids = fileIndex[p.id] || [];
+    let docs = 0, photos = 0, progress = 0;
+    ids.forEach((id) => {
+      const m = fileMetas[id]; if (!m) return;
+      if (m.section === 'document') docs++;
+      else if (m.section === 'photo') photos++;
+      else if (m.section === 'progress') progress++;
+    });
+    const gList = grievances[p.id] || [];
+    return {
+      Project: p.name, Scheme: scheme ? scheme.name : '', 'Sub-scheme': sub ? sub.name : '',
+      Type: p.type, 'Financial Year': p.year || '', Status: p.status || 'Ongoing', Location: p.location,
+      Documents: docs, 'Progress Reports': progress, Photographs: photos, 'Site Visits': (siteLogs[p.id] || []).length,
+      'Grievances (Pending)': gList.filter((g) => g.status === 'Pending').length,
+      'Grievances (Resolved)': gList.filter((g) => g.status === 'Resolved').length,
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projectRows), 'Projects');
+
+  return wb;
+}
+
+function downloadWorkbook(wb, filename) {
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
+/* ------------------------------ confirm-to-delete ---------------------------- */
+
+function ConfirmDelete({ onConfirm, variant = 'icon', label = 'Delete' }) {
+  const [armed, setArmed] = useState(false);
+  const timerRef = useRef(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  function handleClick(e) {
+    e.stopPropagation();
+    if (!armed) {
+      setArmed(true);
+      timerRef.current = setTimeout(() => setArmed(false), 4000);
+    } else {
+      clearTimeout(timerRef.current);
+      setArmed(false);
+      onConfirm();
+    }
+  }
+
+  if (variant === 'button') {
+    return (
+      <button onClick={handleClick} className={armed ? 'btn-danger-armed' : 'btn-ghost'} style={!armed ? { color: C.rust, borderColor: C.rust } : undefined}>
+        <Trash2 size={13} style={{ marginRight: 5 }} /> {armed ? 'Click again to confirm' : label}
+      </button>
+    );
+  }
+  return (
+    <button onClick={handleClick} className={armed ? 'icon-btn-armed' : 'icon-btn-delete'} title={armed ? 'Click again to confirm' : label}>
+      {armed ? <><AlertTriangle size={12} /> Confirm</> : <Trash2 size={14} />}
+    </button>
+  );
+}
+
+/* ---------------------------------- app ---------------------------------- */
+
+function ProjectRegister() {
+  const [loaded, setLoaded] = useState(false);
+  const [schemes, setSchemes] = useState([]);
+  const [subSchemes, setSubSchemes] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [siteLogs, setSiteLogs] = useState({});
+  const [grievances, setGrievances] = useState({});
+  const [fieldLogs, setFieldLogs] = useState([]);
+  const [ampEntries, setAmpEntries] = useState([]);
+  const [proposalEntries, setProposalEntries] = useState([]);
+  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [settings, setSettings] = useState({ mileage: 15 });
+  const [fileIndex, setFileIndex] = useState({});
+  const [fileMetas, setFileMetas] = useState({});
+  const [photoBlobs, setPhotoBlobs] = useState({});
+
+  const [expanded, setExpanded] = useState({});
+  const [expandedSub, setExpandedSub] = useState({});
+  const [section, setSection] = useState('register');
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [activeTab, setActiveTab] = useState('documents');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [showAddScheme, setShowAddScheme] = useState(false);
+  const [addProjectTarget, setAddProjectTarget] = useState(null); // { schemeId, subSchemeId }
+  const [viewerFile, setViewerFile] = useState(null);
+  const [busyMsg, setBusyMsg] = useState('');
+
+  const skipSaveRef = useRef(true);
+
+  /* ------------------------------- load on mount ------------------------------ */
+
+  useEffect(() => {
+    (async () => {
+      let app = await storageGet('appdata');
+      if (!app) {
+        app = {
+          schemes: DEFAULT_SCHEMES, subSchemes: [], projects: [], siteLogs: {}, grievances: {},
+          fieldLogs: [], ampEntries: [], proposalEntries: [], monthlyReports: [], settings: { mileage: 15 }, fileIndex: {},
+        };
+        await storageSet('appdata', app);
+      }
+      setSchemes(app.schemes || DEFAULT_SCHEMES);
+      setSubSchemes(app.subSchemes || []);
+      setProjects(app.projects || []);
+      setSiteLogs(app.siteLogs || {});
+      setGrievances(app.grievances || {});
+      setFieldLogs(app.fieldLogs || []);
+      setAmpEntries(app.ampEntries || []);
+      setProposalEntries(app.proposalEntries || []);
+      setMonthlyReports(app.monthlyReports || []);
+      setSettings(app.settings || { mileage: 15 });
+      setFileIndex(app.fileIndex || {});
+
+      const allIds = Object.values(app.fileIndex || {}).flat();
+      if (allIds.length) {
+        const metas = {};
+        for (const id of allIds) { const m = await storageGet('filemeta:' + id); if (m) metas[id] = m; }
+        setFileMetas(metas);
+      }
+      const initialExpanded = {};
+      (app.schemes || DEFAULT_SCHEMES).forEach((s) => { initialExpanded[s.id] = true; });
+      setExpanded(initialExpanded);
+
+      setLoaded(true);
+      setTimeout(() => { skipSaveRef.current = false; }, 0);
+    })();
+  }, []);
+
+  /* --------------------------------- autosave -------------------------------- */
+
+  useEffect(() => {
+    if (skipSaveRef.current) return;
+    storageSet('appdata', {
+      schemes, subSchemes, projects, siteLogs, grievances, fieldLogs,
+      ampEntries, proposalEntries, monthlyReports, settings, fileIndex,
+    });
+  }, [schemes, subSchemes, projects, siteLogs, grievances, fieldLogs, ampEntries, proposalEntries, monthlyReports, settings, fileIndex]);
+
+  /* ------------------------------- derived data ------------------------------- */
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
+  const projectFileIds = selectedProjectId ? (fileIndex[selectedProjectId] || []) : [];
+  const projectFiles = projectFileIds.map((id) => fileMetas[id]).filter(Boolean);
+
+  /* ---------------------------------- actions --------------------------------- */
+
+  function addScheme(name) {
+    const clean = name.trim(); if (!clean) return;
+    const id = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + uid().slice(0, 4);
+    setSchemes((prev) => [...prev, { id, name: clean }]);
+    setExpanded((prev) => ({ ...prev, [id]: true }));
+    setShowAddScheme(false);
+  }
+
+  function addSubScheme(schemeId, name) {
+    const clean = name.trim(); if (!clean) return;
+    const id = uid();
+    setSubSchemes((prev) => [...prev, { id, schemeId, name: clean }]);
+    setExpandedSub((prev) => ({ ...prev, [id]: true }));
+  }
+  function deleteSubScheme(id) {
+    setProjects((prev) => prev.map((p) => (p.subSchemeId === id ? { ...p, subSchemeId: null } : p)));
+    setSubSchemes((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function addProject(schemeId, subSchemeId, data) {
+    const id = uid();
+    const proj = {
+      id, schemeId, subSchemeId: subSchemeId || null,
+      name: data.name.trim(), type: data.type, location: data.location.trim(),
+      year: data.year || currentFY(), status: 'Ongoing',
+    };
+    setProjects((prev) => [...prev, proj]);
+    setAddProjectTarget(null);
+    setSelectedProjectId(id);
+    setActiveTab('documents');
+  }
+
+  function updateProject(projectId, patch) {
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...patch } : p)));
+  }
+
+  async function deleteProject(projectId) {
+    const ids = fileIndex[projectId] || [];
+    for (const id of ids) { await storageDelete('filemeta:' + id); await storageDelete('fileblob:' + id); }
+    setFileIndex((prev) => { const n = { ...prev }; delete n[projectId]; return n; });
+    setFileMetas((prev) => { const n = { ...prev }; ids.forEach((id) => delete n[id]); return n; });
+    setSiteLogs((prev) => { const n = { ...prev }; delete n[projectId]; return n; });
+    setGrievances((prev) => { const n = { ...prev }; delete n[projectId]; return n; });
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    if (selectedProjectId === projectId) setSelectedProjectId(null);
+  }
+
+  async function saveFile(scopeKey, sect, meta, dataUrl) {
+    const approxBytes = Math.ceil(dataUrl.length * 0.75);
+    if (approxBytes > MAX_FILE_BYTES) {
+      alert('That file is too large to store here (limit ~3.5 MB). Please use a smaller or compressed file.');
+      return null;
+    }
+    const id = uid();
+    const fullMeta = { id, projectId: scopeKey, section: sect, size: approxBytes, createdAt: Date.now(), ...meta };
+    const ok1 = await storageSet('filemeta:' + id, fullMeta);
+    const ok2 = await storageSet('fileblob:' + id, dataUrl);
+    if (!ok1 || !ok2) { alert('Could not save the file. Please try again.'); return null; }
+    setFileMetas((prev) => ({ ...prev, [id]: fullMeta }));
+    setFileIndex((prev) => ({ ...prev, [scopeKey]: [...(prev[scopeKey] || []), id] }));
+    return id;
+  }
+
+  async function deleteFile(id, scopeKey) {
+    await storageDelete('filemeta:' + id);
+    await storageDelete('fileblob:' + id);
+    setFileMetas((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    setFileIndex((prev) => ({ ...prev, [scopeKey]: (prev[scopeKey] || []).filter((x) => x !== id) }));
+    setPhotoBlobs((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  }
+
+  async function openFile(meta) {
+    setBusyMsg('Opening file…');
+    const dataUrl = await storageGet('fileblob:' + meta.id);
+    setBusyMsg('');
+    if (!dataUrl) { alert('Could not load this file.'); return; }
+    setViewerFile({ meta, dataUrl });
+  }
+  async function openFileById(id) {
+    const meta = fileMetas[id];
+    if (!meta) return;
+    await openFile(meta);
+  }
+
+  async function uploadDocuments(projectId, sect, category, fileList, extra) {
+    setBusyMsg('Uploading…');
+    for (const file of Array.from(fileList)) {
+      try {
+        const dataUrl = await loadAnyFile(file);
+        await saveFile(projectId, sect, {
+          category: category || 'Other', name: file.name, mimeType: file.type || 'application/octet-stream',
+          date: (extra && extra.date) || todayStr(), notes: (extra && extra.notes) || '',
+        }, dataUrl);
+      } catch (e) { console.error(e); }
+    }
+    setBusyMsg('');
+  }
+
+  async function loadPhotosForProject(projectId) {
+    const ids = (fileIndex[projectId] || []).filter((id) => fileMetas[id] && fileMetas[id].section === 'photo');
+    const missing = ids.filter((id) => !photoBlobs[id]);
+    if (!missing.length) return;
+    const updates = {};
+    for (const id of missing) { const d = await storageGet('fileblob:' + id); if (d) updates[id] = d; }
+    setPhotoBlobs((prev) => ({ ...prev, ...updates }));
+  }
+
+  useEffect(() => {
+    if (selectedProjectId && activeTab === 'photos') loadPhotosForProject(selectedProjectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId, activeTab, fileIndex]);
+
+  async function capturePhotos(projectId, fileList) {
+    setBusyMsg('Getting location…');
+    const loc = await getLocation();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const project = projects.find((p) => p.id === projectId);
+    const lines = loc
+      ? [`${dateStr}  ${timeStr}`, `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`, project ? project.name : '']
+      : [`${dateStr}  ${timeStr}`, 'Location unavailable', project ? project.name : ''];
+
+    setBusyMsg('Saving photo…');
+    for (const file of Array.from(fileList)) {
+      try {
+        const raw = await loadAnyFile(file);
+        const stamped = await stampAndCompressImage(raw, lines);
+        await saveFile(projectId, 'photo', {
+          category: 'Photo', name: file.name || `photo-${uid()}.jpg`, mimeType: 'image/jpeg', date: todayStr(),
+          notes: loc ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : 'Location unavailable',
+        }, stamped);
+      } catch (e) { console.error(e); }
+    }
+    setBusyMsg('');
+    loadPhotosForProject(projectId);
+  }
+
+  async function addSiteLog(projectId, entry) {
+    let geo = null;
+    if (entry.useLocation) { setBusyMsg('Getting location…'); geo = await getLocation(); setBusyMsg(''); }
+    const log = {
+      id: uid(), date: entry.date || todayStr(), visitedBy: entry.visitedBy || '', notes: entry.notes || '',
+      weather: entry.weather || '', lat: geo ? geo.lat : null, lng: geo ? geo.lng : null, createdAt: Date.now(),
+    };
+    setSiteLogs((prev) => ({ ...prev, [projectId]: [log, ...(prev[projectId] || [])] }));
+  }
+  function deleteSiteLog(projectId, logId) {
+    setSiteLogs((prev) => ({ ...prev, [projectId]: (prev[projectId] || []).filter((l) => l.id !== logId) }));
+  }
+
+  function addGrievance(projectId, entry) {
+    const g = { id: uid(), status: 'Pending', redressal: '', resolvedDate: null, createdAt: Date.now(), ...entry };
+    setGrievances((prev) => ({ ...prev, [projectId]: [g, ...(prev[projectId] || [])] }));
+  }
+  function updateGrievance(projectId, id, patch) {
+    setGrievances((prev) => ({ ...prev, [projectId]: (prev[projectId] || []).map((g) => (g.id === id ? { ...g, ...patch } : g)) }));
+  }
+  function deleteGrievance(projectId, id) {
+    setGrievances((prev) => ({ ...prev, [projectId]: (prev[projectId] || []).filter((g) => g.id !== id) }));
+  }
+
+  function addFieldLog(entry) { setFieldLogs((prev) => [{ id: uid(), createdAt: Date.now(), ...entry }, ...prev]); }
+  function deleteFieldLog(id) { setFieldLogs((prev) => prev.filter((l) => l.id !== id)); }
+
+  async function addProposalOrAmp(kind, meta, fileList) {
+    setBusyMsg('Uploading…');
+    const fileIds = [];
+    for (const file of Array.from(fileList)) {
+      try {
+        const dataUrl = await loadAnyFile(file);
+        const id = await saveFile(kind, kind, {
+          category: kind === 'amp' ? 'AMP' : 'Proposal', name: file.name, mimeType: file.type || 'application/octet-stream',
+          date: todayStr(), notes: meta.notes || '',
+        }, dataUrl);
+        if (id) fileIds.push(id);
+      } catch (e) { console.error(e); }
+    }
+    const entry = { id: uid(), createdAt: Date.now(), fileIds, ...meta };
+    if (kind === 'amp') setAmpEntries((prev) => [entry, ...prev]);
+    else setProposalEntries((prev) => [entry, ...prev]);
+    setBusyMsg('');
+  }
+
+  async function deleteEntryWithFiles(kind, entry) {
+    for (const fid of entry.fileIds || []) { await storageDelete('filemeta:' + fid); await storageDelete('fileblob:' + fid); }
+    setFileMetas((prev) => { const n = { ...prev }; (entry.fileIds || []).forEach((fid) => delete n[fid]); return n; });
+    setFileIndex((prev) => ({ ...prev, [kind]: (prev[kind] || []).filter((x) => !(entry.fileIds || []).includes(x)) }));
+  }
+  async function deleteProposal(id) {
+    const e = proposalEntries.find((x) => x.id === id);
+    if (e) await deleteEntryWithFiles('proposal', e);
+    setProposalEntries((prev) => prev.filter((x) => x.id !== id));
+  }
+  async function deleteAmp(id) {
+    const e = ampEntries.find((x) => x.id === id);
+    if (e) await deleteEntryWithFiles('amp', e);
+    setAmpEntries((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  async function addMonthlyReport(categoryId, categoryLabel, month, fileList) {
+    setBusyMsg('Uploading…');
+    const fileIds = [];
+    for (const file of Array.from(fileList)) {
+      try {
+        const dataUrl = await loadAnyFile(file);
+        const id = await saveFile('monthly', 'monthly', {
+          category: categoryLabel, name: file.name, mimeType: file.type || 'application/octet-stream', date: todayStr(), notes: month,
+        }, dataUrl);
+        if (id) fileIds.push(id);
+      } catch (e) { console.error(e); }
+    }
+    setMonthlyReports((prev) => [{ id: uid(), categoryId, categoryLabel, month, fileIds, createdAt: Date.now() }, ...prev]);
+    setBusyMsg('');
+  }
+  async function deleteMonthlyReport(id) {
+    const e = monthlyReports.find((x) => x.id === id);
+    if (e) await deleteEntryWithFiles('monthly', e);
+    setMonthlyReports((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function downloadAbstract() {
+    const wb = buildAbstractWorkbook({ schemes, subSchemes, projects, fileIndex, fileMetas, siteLogs, grievances });
+    downloadWorkbook(wb, `scheme-abstract-${todayStr()}.xlsx`);
+  }
+
+  /* --------------------------------- rendering -------------------------------- */
+
+  if (!loaded) {
+    return (
+      <div style={{ fontFamily: FONT_SANS, background: C.paper, minHeight: 480, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft }}>
+        <style>{FONT_IMPORT}</style>
+        <Loader2 size={20} className="animate-spin" style={{ marginRight: 8 }} />
+        Loading register…
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily: FONT_SANS, background: C.paper, color: C.ink, minHeight: 600, display: 'flex', flexDirection: 'column' }}>
+      <style>{FONT_IMPORT}{GLOBAL_CSS}</style>
+      <div style={{ height: 3, background: C.rust }} />
+
+      {/* ---- header ---- */}
+      <div style={{ borderBottom: `2px solid ${C.ink}`, background: C.paper, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => setSidebarOpen((s) => !s)} className="md-hide icon-btn" style={{ color: C.ink }}><Menu size={20} /></button>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>Site &amp; Project Register</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.inkSoft, marginTop: 2 }}>
+              {schemes.length} scheme{schemes.length !== 1 ? 's' : ''} · {projects.length} project{projects.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+        {busyMsg && (
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.rust, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Loader2 size={13} className="animate-spin" /> {busyMsg}
+          </div>
+        )}
+      </div>
+
+      {/* ---- section nav ---- */}
+      <div style={{ display: 'flex', gap: 2, padding: '0 18px', borderBottom: `1px solid ${C.line}`, background: C.paper, flexWrap: 'wrap' }}>
+        {NAV_SECTIONS.map((sec) => {
+          const active = section === sec.id;
+          const Icon = sec.icon;
+          return (
+            <button key={sec.id} onClick={() => setSection(sec.id)} className={`nav-btn ${active ? 'nav-btn-active' : ''}`}>
+              <Icon size={14} /> {sec.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', flex: 1, minHeight: 560 }}>
+        {section === 'register' ? (
+          <>
+            {/* ---- sidebar ---- */}
+            <div className="sidebar" style={{ width: 280, flexShrink: 0, borderRight: `1px solid ${C.line}`, background: C.paperDark, padding: '14px 10px', display: sidebarOpen ? 'block' : undefined, overflowY: 'auto' }}>
+              {schemes.map((scheme) => {
+                const schemeSubs = subSchemes.filter((ss) => ss.schemeId === scheme.id);
+                const isOpen = !!expanded[scheme.id];
+                const directProjects = projects.filter((p) => p.schemeId === scheme.id && !p.subSchemeId);
+                const totalInScheme = projects.filter((p) => p.schemeId === scheme.id).length;
+
+                return (
+                  <div key={scheme.id} style={{ marginBottom: 6 }}>
+                    <button onClick={() => setExpanded((prev) => ({ ...prev, [scheme.id]: !prev[scheme.id] }))}
+                      className="row-hover" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '7px 6px', textAlign: 'left' }}>
+                      {isOpen ? <ChevronDown size={15} color={C.navy} /> : <ChevronRight size={15} color={C.navy} />}
+                      <FolderOpen size={14} color={C.navy} />
+                      <span style={{ fontFamily: FONT_MONO, fontWeight: 600, fontSize: 13, color: C.navy, letterSpacing: '0.02em' }}>{scheme.name}</span>
+                      <span style={{ marginLeft: 'auto', fontFamily: FONT_MONO, fontSize: 11, color: C.khaki }}>{totalInScheme}</span>
+                    </button>
+
+                    {isOpen && (
+                      <div style={{ paddingLeft: 22, borderLeft: `1px solid ${C.line}`, marginLeft: 12 }}>
+                        {schemeSubs.map((sub) => {
+                          const subOpen = !!expandedSub[sub.id];
+                          const subProjects = projects.filter((p) => p.subSchemeId === sub.id);
+                          const isAddingHere = addProjectTarget && addProjectTarget.schemeId === scheme.id && addProjectTarget.subSchemeId === sub.id;
+                          return (
+                            <div key={sub.id} style={{ marginBottom: 4 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <button onClick={() => setExpandedSub((prev) => ({ ...prev, [sub.id]: !prev[sub.id] }))}
+                                  className="row-hover" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '5px 6px', textAlign: 'left', minWidth: 0 }}>
+                                  {subOpen ? <ChevronDown size={13} color={C.navySoft} /> : <ChevronRight size={13} color={C.navySoft} />}
+                                  <Folder size={12} color={C.navySoft} />
+                                  <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.name}</span>
+                                  <span style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.khaki }}>{subProjects.length}</span>
+                                </button>
+                                <ConfirmDelete onConfirm={() => deleteSubScheme(sub.id)} label="Delete sub-scheme" />
+                              </div>
+
+                              {subOpen && (
+                                <div style={{ paddingLeft: 20 }}>
+                                  {subProjects.map((proj) => (
+                                    <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
+                                      onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                                  ))}
+                                  {isAddingHere ? (
+                                    <AddProjectForm onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, sub.id, data)} />
+                                  ) : (
+                                    <button onClick={() => setAddProjectTarget({ schemeId: scheme.id, subSchemeId: sub.id })}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, padding: '5px 6px', background: 'none', border: 'none', cursor: 'pointer', color: C.rust, fontSize: 12, fontWeight: 500 }}>
+                                      <Plus size={12} /> Add project
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {(directProjects.length > 0 || schemeSubs.length === 0) && (
+                          <div style={{ marginTop: schemeSubs.length ? 8 : 0 }}>
+                            {schemeSubs.length > 0 && directProjects.length > 0 && (
+                              <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.khaki, padding: '2px 6px', marginBottom: 2 }}>GENERAL</div>
+                            )}
+                            {directProjects.map((proj) => (
+                              <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
+                                onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                            ))}
+                            {addProjectTarget && addProjectTarget.schemeId === scheme.id && !addProjectTarget.subSchemeId ? (
+                              <AddProjectForm onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, null, data)} />
+                            ) : (
+                              <button onClick={() => setAddProjectTarget({ schemeId: scheme.id, subSchemeId: null })}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, padding: '6px 6px', background: 'none', border: 'none', cursor: 'pointer', color: C.rust, fontSize: 12.5, fontWeight: 500 }}>
+                                <Plus size={13} /> Add project{schemeSubs.length ? ' (no sub-scheme)' : ''}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: 8 }}>
+                          <SubSchemeAdder onSave={(name) => addSubScheme(scheme.id, name)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {showAddScheme ? (
+                <AddSchemeForm onCancel={() => setShowAddScheme(false)} onSave={addScheme} />
+              ) : (
+                <button onClick={() => setShowAddScheme(true)} className="btn-ghost" style={{ marginTop: 10, width: '100%', justifyContent: 'center', borderStyle: 'dashed' }}>
+                  <Plus size={14} style={{ marginRight: 5 }} /> Add scheme
+                </button>
+              )}
+            </div>
+
+            {/* ---- main ---- */}
+            <div style={{ flex: 1, padding: '18px 22px', minWidth: 0 }}>
+              {!selectedProject ? (
+                <EmptyState hasProjects={projects.length > 0} />
+              ) : (
+                <ProjectPanel
+                  project={selectedProject}
+                  scheme={schemes.find((s) => s.id === selectedProject.schemeId)}
+                  subScheme={subSchemes.find((s) => s.id === selectedProject.subSchemeId)}
+                  activeTab={activeTab} setActiveTab={setActiveTab}
+                  onDeleteProject={() => deleteProject(selectedProject.id)}
+                  onUpdateProject={(patch) => updateProject(selectedProject.id, patch)}
+                  files={projectFiles}
+                  onUploadDocuments={uploadDocuments} onOpenFile={openFile} onDeleteFile={deleteFile}
+                  photoBlobs={photoBlobs} onCapturePhotos={capturePhotos}
+                  siteLogs={siteLogs[selectedProject.id] || []} onAddSiteLog={(entry) => addSiteLog(selectedProject.id, entry)} onDeleteSiteLog={(logId) => deleteSiteLog(selectedProject.id, logId)}
+                  grievances={grievances[selectedProject.id] || []} onAddGrievance={(entry) => addGrievance(selectedProject.id, entry)}
+                  onUpdateGrievance={(id, patch) => updateGrievance(selectedProject.id, id, patch)} onDeleteGrievance={(id) => deleteGrievance(selectedProject.id, id)}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, padding: '18px 22px', minWidth: 0 }}>
+            {section === 'abstract' && (
+              <AbstractSection schemes={schemes} subSchemes={subSchemes} projects={projects} onDownload={downloadAbstract} />
+            )}
+            {section === 'monthly' && (
+              <MonthlyProgressSection schemes={schemes} entries={monthlyReports} onAdd={addMonthlyReport} onOpenFile={openFileById} onDelete={deleteMonthlyReport} />
+            )}
+            {section === 'fieldlog' && (
+              <FieldLogSection logs={fieldLogs} mileage={settings.mileage} onSetMileage={(m) => setSettings((s) => ({ ...s, mileage: m }))} onAdd={addFieldLog} onDelete={deleteFieldLog} />
+            )}
+            {section === 'proposals' && (
+              <ProposalsSection kind="proposal" entries={proposalEntries} schemes={schemes} subSchemes={subSchemes}
+                onAdd={(meta, files) => addProposalOrAmp('proposal', meta, files)} onOpenFile={openFileById} onDelete={deleteProposal} />
+            )}
+            {section === 'amp' && (
+              <ProposalsSection kind="amp" entries={ampEntries} schemes={schemes} subSchemes={subSchemes}
+                onAdd={(meta, files) => addProposalOrAmp('amp', meta, files)} onOpenFile={openFileById} onDelete={deleteAmp} />
+            )}
+          </div>
+        )}
+      </div>
+
+      {viewerFile && <FileViewerModal meta={viewerFile.meta} dataUrl={viewerFile.dataUrl} onClose={() => setViewerFile(null)} />}
+
+      <style>{`
+        @media (max-width: 780px) {
+          .sidebar { display: ${sidebarOpen ? 'block' : 'none'}; position: fixed; top: 107px; left: 0; bottom: 0; z-index: 30; box-shadow: 2px 0 12px rgba(0,0,0,0.15); }
+          .md-hide { display: inline-flex !important; }
+        }
+        @media (min-width: 781px) {
+          .sidebar { display: block; }
+          .md-hide { display: none; }
+        }
+        input::placeholder, textarea::placeholder { color: ${C.khaki}; }
+      `}</style>
+    </div>
+  );
+}
+
+/* ------------------------------- small components ---------------------------- */
+
+function EmptyState({ hasProjects }) {
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, textAlign: 'center', padding: 40 }}>
+      <FolderOpen size={34} color={C.khaki} />
+      <div style={{ fontSize: 16, fontWeight: 600, marginTop: 14, color: C.ink }}>{hasProjects ? 'Select a project' : 'No projects yet'}</div>
+      <div style={{ fontSize: 13.5, marginTop: 6, maxWidth: 340 }}>
+        {hasProjects
+          ? 'Choose a project from the register on the left to see its documents, progress reports, photographs, site visit log and grievances.'
+          : 'Open a scheme in the left panel, add a sub-scheme if it has one (like MMSY), then add your first project — a road, bridge or building work.'}
+      </div>
+    </div>
+  );
+}
+
+function ProjectRow({ proj, selected, onSelect }) {
+  const TypeIcon = PROJECT_TYPE_ICONS[proj.type] || HelpCircle;
+  const done = proj.status === 'Completed';
+  return (
+    <button onClick={onSelect} className="row-hover" style={{
+      display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '7px 8px', marginTop: 2,
+      background: selected ? C.card : 'none', border: selected ? `1px solid ${C.line}` : '1px solid transparent', cursor: 'pointer',
+    }}>
+      <TypeIcon size={13} color={done ? C.navy : C.rust} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</div>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft, marginTop: 1 }}>
+          {proj.type}{proj.year ? ` · FY ${proj.year}` : ''}{proj.location ? ` · ${proj.location}` : ''}
+        </div>
+      </div>
+      <span title={done ? 'Completed' : 'Ongoing'} style={{ width: 7, height: 7, borderRadius: '50%', background: done ? C.navy : C.rust, flexShrink: 0 }} />
+    </button>
+  );
+}
+
+function SubSchemeAdder({ onSave }) {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState('');
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ fontSize: 10.5, fontFamily: FONT_MONO, color: C.rust, background: 'none', border: `1px dashed ${C.rust}`, borderRadius: 20, padding: '3px 9px', cursor: 'pointer' }}>
+        + Add sub-scheme
+      </button>
+    );
+  }
+  function commit() { if (val.trim()) onSave(val); setVal(''); setOpen(false); }
+  return (
+    <span style={{ display: 'inline-flex', gap: 4 }}>
+      <input autoFocus value={val} onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setVal(''); setOpen(false); } }}
+        className="input" style={{ fontSize: 11, padding: '3px 7px', width: 100 }} placeholder="name" />
+      <button onClick={commit} style={{ fontSize: 10.5, color: C.navy, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Add</button>
+    </span>
+  );
+}
+
+function AddSchemeForm({ onCancel, onSave }) {
+  const [name, setName] = useState('');
+  return (
+    <div className="card" style={{ marginTop: 8, padding: 10 }}>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Scheme name, e.g. OBMSY" className="input"
+        onKeyDown={(e) => { if (e.key === 'Enter') onSave(name); if (e.key === 'Escape') onCancel(); }} />
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <button onClick={() => onSave(name)} className="btn-primary">Add</button>
+        <button onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function AddProjectForm({ onCancel, onSave }) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState('Road');
+  const [location, setLocation] = useState('');
+  const [year, setYear] = useState(currentFY());
+  return (
+    <div className="card" style={{ marginTop: 6, padding: 10 }}>
+      <label style={labelStyle}>Project name</label>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kantapada–Baisipalli Road" className="input" />
+      <label style={{ ...labelStyle, marginTop: 8 }}>Type</label>
+      <select value={type} onChange={(e) => setType(e.target.value)} className="input">
+        {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <label style={{ ...labelStyle, marginTop: 8 }}>Financial year</label>
+      <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026-27" className="input" />
+      <label style={{ ...labelStyle, marginTop: 8 }}>Location</label>
+      <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Block / GP" className="input" />
+      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        <button onClick={() => name.trim() && onSave({ name, type, location, year })} className="btn-primary">Save project</button>
+        <button onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectPanel(props) {
+  const {
+    project, scheme, subScheme, activeTab, setActiveTab, onDeleteProject, onUpdateProject, files,
+    onUploadDocuments, onOpenFile, onDeleteFile, photoBlobs, onCapturePhotos,
+    siteLogs, onAddSiteLog, onDeleteSiteLog, grievances, onAddGrievance, onUpdateGrievance, onDeleteGrievance,
+  } = props;
+  const done = project.status === 'Completed';
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.01em' }}>{project.name}</div>
+            <button onClick={() => onUpdateProject({ status: done ? 'Ongoing' : 'Completed' })} className={`status-pill ${done ? 'status-pill-done' : 'status-pill-ongoing'}`}>
+              {done ? <CheckCircle2 size={13} /> : <Clock size={13} />} {done ? 'Completed' : 'Ongoing'}
+            </button>
+          </div>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginTop: 6 }}>
+            {scheme ? scheme.name : ''}{subScheme ? ` · ${subScheme.name}` : ''} · {project.type} · FY {project.year || '—'}{project.location ? ` · ${project.location}` : ''}
+          </div>
+        </div>
+        <ConfirmDelete onConfirm={onDeleteProject} variant="button" label="Delete project" />
+      </div>
+
+      <div style={{ display: 'flex', gap: 2, marginTop: 18, borderBottom: `2px solid ${C.ink}`, flexWrap: 'wrap' }}>
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = activeTab === t.id;
+          return (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`tab-btn ${active ? 'tab-btn-active' : ''}`}>
+              <Icon size={14} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ paddingTop: 18 }}>
+        {activeTab === 'documents' && (
+          <FilesTab section="document" categories={DOC_CATEGORIES} files={files.filter((f) => f.section === 'document')}
+            projectId={project.id} onUpload={onUploadDocuments} onOpenFile={onOpenFile} onDeleteFile={onDeleteFile} />
+        )}
+        {activeTab === 'progress' && (
+          <FilesTab section="progress" categories={['Progress Report']} files={files.filter((f) => f.section === 'progress')}
+            projectId={project.id} onUpload={onUploadDocuments} onOpenFile={onOpenFile} onDeleteFile={onDeleteFile} isProgress />
+        )}
+        {activeTab === 'photos' && (
+          <PhotosTab projectId={project.id} files={files.filter((f) => f.section === 'photo')} photoBlobs={photoBlobs}
+            onCapturePhotos={onCapturePhotos} onDeleteFile={onDeleteFile} />
+        )}
+        {activeTab === 'sitelog' && <SiteLogTab logs={siteLogs} onAdd={onAddSiteLog} onDelete={onDeleteSiteLog} />}
+        {activeTab === 'grievance' && <GrievanceTab grievances={grievances} onAdd={onAddGrievance} onUpdate={onUpdateGrievance} onDelete={onDeleteGrievance} />}
+      </div>
+    </div>
+  );
+}
+
+function FilesTab({ section, categories, files, projectId, onUpload, onOpenFile, onDeleteFile, isProgress }) {
+  const [category, setCategory] = useState(categories[0]);
+  const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(todayStr());
+  const [filterCat, setFilterCat] = useState('All');
+  const inputRef = useRef(null);
+
+  const filtered = filterCat === 'All' ? files : files.filter((f) => f.category === filterCat);
+  const sorted = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt);
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {!isProgress && (
+            <div><label style={labelStyle}>Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="input" style={{ width: 170 }}>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
+          <div><label style={labelStyle}>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" style={{ width: 145 }} /></div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <label style={labelStyle}>{isProgress ? 'Report period / note' : 'Reference / note (optional)'}</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isProgress ? 'e.g. August 2026' : 'e.g. Letter no. 1123/RD'} className="input" />
+          </div>
+          <div>
+            <input ref={inputRef} type="file" multiple accept={ACCEPT_DOC} style={{ display: 'none' }}
+              onChange={(e) => { if (e.target.files && e.target.files.length) onUpload(projectId, section, isProgress ? 'Progress Report' : category, e.target.files, { date, notes }); e.target.value = ''; }} />
+            <button onClick={() => inputRef.current.click()} className="btn-primary"><Upload size={13} style={{ marginRight: 5 }} /> Upload file</button>
+          </div>
+        </div>
+        <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 8 }}>PDF, image, or Excel · up to ~3.5 MB per file · view opens in-app, no download needed</div>
+      </div>
+
+      {!isProgress && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+          {['All', ...categories].map((c) => (
+            <button key={c} onClick={() => setFilterCat(c)} style={{
+              padding: '4px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+              border: `1px solid ${filterCat === c ? C.navy : C.line}`, background: filterCat === c ? C.navy : 'transparent',
+              color: filterCat === c ? C.paper : C.inkSoft, fontWeight: 500, transition: 'all .15s ease',
+            }}>{c}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 14 }}>
+        {sorted.length === 0 ? (
+          <div style={{ color: C.khaki, fontSize: 13, padding: '20px 4px' }}>No files here yet. Upload one above to start this file.</div>
+        ) : (
+          sorted.map((f) => {
+            const Icon = fileIcon(f.mimeType);
+            return (
+              <div key={f.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', borderBottom: `1px solid ${C.lineSoft}` }}>
+                <Icon size={17} color={C.navy} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
+                    {!isProgress && <span>{f.category} · </span>}{fmtDate(f.date)}{f.notes ? ` · ${f.notes}` : ''} · {fmtBytes(f.size)}
+                  </div>
+                </div>
+                <button onClick={() => onOpenFile(f)} className="icon-btn" title="View"><Eye size={15} /></button>
+                <ConfirmDelete onConfirm={() => onDeleteFile(f.id, projectId)} label="Delete file" />
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PhotosTab({ projectId, files, photoBlobs, onCapturePhotos, onDeleteFile }) {
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+  const sorted = [...files].sort((a, b) => b.createdAt - a.createdAt);
+  const [preview, setPreview] = useState(null);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+          onChange={(e) => { if (e.target.files && e.target.files.length) onCapturePhotos(projectId, e.target.files); e.target.value = ''; }} />
+        <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+          onChange={(e) => { if (e.target.files && e.target.files.length) onCapturePhotos(projectId, e.target.files); e.target.value = ''; }} />
+        <button onClick={() => cameraRef.current.click()} className="btn-primary"><Camera size={13} style={{ marginRight: 5 }} /> Take photo</button>
+        <button onClick={() => galleryRef.current.click()} className="btn-ghost"><Upload size={13} style={{ marginRight: 5 }} /> Upload from gallery</button>
+      </div>
+      <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 8 }}>Photos are geotagged with date, time and coordinates when location access is allowed by the browser.</div>
+
+      {sorted.length === 0 ? (
+        <div style={{ color: C.khaki, fontSize: 13, padding: '24px 4px' }}>No photographs filed for this project yet.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginTop: 16 }}>
+          {sorted.map((f) => (
+            <div key={f.id} style={{ border: `1px solid ${C.line}`, borderRadius: 8, overflow: 'hidden', background: C.card, boxShadow: '0 1px 3px rgba(33,43,33,0.06)' }}>
+              <div onClick={() => photoBlobs[f.id] && setPreview({ meta: f, dataUrl: photoBlobs[f.id] })}
+                style={{ width: '100%', height: 110, background: C.lineSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {photoBlobs[f.id] ? <img src={photoBlobs[f.id]} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Loader2 size={16} className="animate-spin" color={C.khaki} />}
+              </div>
+              <div style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft }}>{fmtDate(f.date)}</div>
+                <ConfirmDelete onConfirm={() => onDeleteFile(f.id, projectId)} label="Delete photo" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {preview && <FileViewerModal meta={preview.meta} dataUrl={preview.dataUrl} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+function SiteLogTab({ logs, onAdd, onDelete }) {
+  const [date, setDate] = useState(todayStr());
+  const [visitedBy, setVisitedBy] = useState('');
+  const [weather, setWeather] = useState('');
+  const [notes, setNotes] = useState('');
+  const [useLocation, setUseLocation] = useState(true);
+
+  function submit() { if (!notes.trim()) return; onAdd({ date, visitedBy, weather, notes, useLocation }); setNotes(''); setWeather(''); }
+  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div><label style={labelStyle}>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" style={{ width: 145 }} /></div>
+          <div><label style={labelStyle}><User size={11} style={{ marginRight: 3, verticalAlign: -1 }} />Visited by</label><input value={visitedBy} onChange={(e) => setVisitedBy(e.target.value)} placeholder="Officer / JE name" className="input" style={{ width: 170 }} /></div>
+          <div><label style={labelStyle}><CloudRain size={11} style={{ marginRight: 3, verticalAlign: -1 }} />Weather</label><input value={weather} onChange={(e) => setWeather(e.target.value)} placeholder="Optional" className="input" style={{ width: 130 }} /></div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <label style={labelStyle}>Site observation</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Work stage, progress, issues noted…" rows={3} className="input" style={{ resize: 'vertical' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.inkSoft }}>
+            <input type="checkbox" checked={useLocation} onChange={(e) => setUseLocation(e.target.checked)} /> Attach current location
+          </label>
+          <button onClick={submit} className="btn-primary"><Plus size={13} style={{ marginRight: 4 }} /> Add entry</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {sorted.length === 0 ? <div style={{ color: C.khaki, fontSize: 13, padding: '10px 4px' }}>No site visits logged yet.</div> : (
+          sorted.map((log) => (
+            <div key={log.id} className="row-hover" style={{ padding: '11px 4px', borderBottom: `1px solid ${C.lineSoft}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, color: C.navy }}>{fmtDate(log.date)} {log.visitedBy ? `· ${log.visitedBy}` : ''}</div>
+                <ConfirmDelete onConfirm={() => onDelete(log.id)} label="Delete entry" />
+              </div>
+              <div style={{ fontSize: 13.5, marginTop: 4 }}>{log.notes}</div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft, marginTop: 4 }}>
+                {log.weather ? `${log.weather} · ` : ''}{log.lat ? `${log.lat.toFixed(5)}, ${log.lng.toFixed(5)}` : 'No location'}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GrievanceTab({ grievances, onAdd, onUpdate, onDelete }) {
+  const [date, setDate] = useState(todayStr());
+  const [complainant, setComplainant] = useState('');
+  const [contact, setContact] = useState('');
+  const [details, setDetails] = useState('');
+
+  function submit() { if (!details.trim()) return; onAdd({ date, complainant, contact, details }); setComplainant(''); setContact(''); setDetails(''); }
+  const sorted = [...grievances].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div><label style={labelStyle}>Date received</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" style={{ width: 145 }} /></div>
+          <div><label style={labelStyle}>Complainant name</label><input value={complainant} onChange={(e) => setComplainant(e.target.value)} className="input" style={{ width: 180 }} /></div>
+          <div><label style={labelStyle}>Contact (optional)</label><input value={contact} onChange={(e) => setContact(e.target.value)} className="input" style={{ width: 150 }} /></div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <label style={labelStyle}>Grievance details</label>
+          <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3} className="input" style={{ resize: 'vertical' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+          <button onClick={submit} className="btn-primary"><Plus size={13} style={{ marginRight: 4 }} /> Log grievance</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {sorted.length === 0 ? <div style={{ color: C.khaki, fontSize: 13, padding: '10px 4px' }}>No grievances recorded for this project.</div> : (
+          sorted.map((g) => (
+            <div key={g.id} className="row-hover" style={{ padding: '11px 4px', borderBottom: `1px solid ${C.lineSoft}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, color: C.navy }}>{fmtDate(g.date)}{g.complainant ? ` · ${g.complainant}` : ''}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <select value={g.status}
+                    onChange={(e) => onUpdate(g.id, { status: e.target.value, resolvedDate: e.target.value === 'Resolved' ? (g.resolvedDate || todayStr()) : null })}
+                    style={{ fontSize: 11.5, fontFamily: FONT_MONO, padding: '3px 6px', border: `1px solid ${g.status === 'Resolved' ? C.navy : C.rust}`, borderRadius: 5, color: g.status === 'Resolved' ? C.navy : C.rust, background: '#fff' }}>
+                    {GRIEVANCE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <ConfirmDelete onConfirm={() => onDelete(g.id)} label="Delete grievance" />
+                </div>
+              </div>
+              <div style={{ fontSize: 13.5, marginTop: 4 }}>{g.details}</div>
+              {g.contact && <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft, marginTop: 3 }}>Contact: {g.contact}</div>}
+              <div style={{ marginTop: 6 }}>
+                <input defaultValue={g.redressal || ''} placeholder="Redressal action taken…" onBlur={(e) => onUpdate(g.id, { redressal: e.target.value })} className="input" style={{ fontSize: 12.5 }} />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FieldLogSection({ logs, mileage, onSetMileage, onAdd, onDelete }) {
+  const [date, setDate] = useState(todayStr());
+  const [vehicleNo, setVehicleNo] = useState('');
+  const [startKm, setStartKm] = useState('');
+  const [endKm, setEndKm] = useState('');
+  const [purpose, setPurpose] = useState('');
+
+  const distance = (startKm !== '' && endKm !== '' && !isNaN(startKm) && !isNaN(endKm)) ? Math.max(0, Number(endKm) - Number(startKm)) : null;
+  const fuel = distance != null && mileage > 0 ? distance / mileage : null;
+
+  function submit() {
+    if (distance == null || !purpose.trim()) return;
+    onAdd({ date, vehicleNo, startKm: Number(startKm), endKm: Number(endKm), distance, mileage, fuelUsed: fuel, purpose });
+    setStartKm(''); setEndKm(''); setPurpose('');
+  }
+
+  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  const totalDistance = logs.reduce((s, l) => s + (l.distance || 0), 0);
+  const totalFuel = logs.reduce((s, l) => s + (l.fuelUsed || 0), 0);
+
+  return (
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Field Visit Log</div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>
+        {logs.length} trip{logs.length !== 1 ? 's' : ''} logged · {totalDistance.toFixed(0)} km · {totalFuel.toFixed(1)} L fuel
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div><label style={labelStyle}>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input" style={{ width: 145 }} /></div>
+          <div><label style={labelStyle}>Vehicle no. (optional)</label><input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value)} className="input" style={{ width: 130 }} /></div>
+          <div><label style={labelStyle}>Start KM</label><input type="number" value={startKm} onChange={(e) => setStartKm(e.target.value)} className="input" style={{ width: 100 }} /></div>
+          <div><label style={labelStyle}>End KM</label><input type="number" value={endKm} onChange={(e) => setEndKm(e.target.value)} className="input" style={{ width: 100 }} /></div>
+          <div><label style={labelStyle}>Mileage (km/l)</label><input type="number" value={mileage} onChange={(e) => onSetMileage(Number(e.target.value) || 0)} className="input" style={{ width: 90 }} /></div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <label style={labelStyle}>Purpose of visit</label>
+          <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="e.g. Inspection of PMGSY road at Kantapada" className="input" />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft }}>{distance != null ? `${distance} km · ${fuel.toFixed(2)} L fuel (est.)` : 'Enter start & end KM'}</div>
+          <button onClick={submit} className="btn-primary"><Plus size={13} style={{ marginRight: 4 }} /> Add entry</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {sorted.length === 0 ? <div style={{ color: C.khaki, fontSize: 13, padding: '10px 4px' }}>No field visits logged yet.</div> : (
+          sorted.map((l) => (
+            <div key={l.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 4px', borderBottom: `1px solid ${C.lineSoft}` }}>
+              <Car size={16} color={C.navy} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{l.purpose}</div>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
+                  {fmtDate(l.date)}{l.vehicleNo ? ` · ${l.vehicleNo}` : ''} · {l.startKm}–{l.endKm} km ({l.distance} km) · {l.fuelUsed.toFixed(2)} L
+                </div>
+              </div>
+              <ConfirmDelete onConfirm={() => onDelete(l.id)} label="Delete trip" />
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AbstractSection({ schemes, subSchemes, projects, onDownload }) {
+  const rows = schemes.map((s) => {
+    const schemeProjects = projects.filter((p) => p.schemeId === s.id);
+    const byYear = {};
+    schemeProjects.forEach((p) => {
+      const y = p.year || 'Unspecified';
+      byYear[y] = byYear[y] || { total: 0, ongoing: 0, completed: 0 };
+      byYear[y].total++;
+      if (p.status === 'Completed') byYear[y].completed++; else byYear[y].ongoing++;
+    });
+    return {
+      scheme: s, total: schemeProjects.length,
+      ongoing: schemeProjects.filter((p) => p.status !== 'Completed').length,
+      completed: schemeProjects.filter((p) => p.status === 'Completed').length,
+      years: Object.keys(byYear).sort().reverse(), byYear,
+      subCount: subSchemes.filter((ss) => ss.schemeId === s.id).length,
+    };
+  });
+  const grandTotal = projects.length;
+  const grandOngoing = projects.filter((p) => p.status !== 'Completed').length;
+  const grandCompleted = projects.filter((p) => p.status === 'Completed').length;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Scheme Abstract</div>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
+            All schemes at a glance — {grandTotal} total · {grandOngoing} ongoing · {grandCompleted} completed
+          </div>
+        </div>
+        <button onClick={onDownload} className="btn-primary"><FileSpreadsheet size={13} style={{ marginRight: 6 }} /> Export to Excel</button>
+      </div>
+
+      <div style={{ display: 'grid', gap: 16, marginTop: 16 }}>
+        {rows.map((r) => (
+          <div key={r.scheme.id} className="card" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>
+                {r.scheme.name}{r.subCount > 0 && <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.khaki, fontWeight: 500 }}> · {r.subCount} sub-scheme{r.subCount !== 1 ? 's' : ''}</span>}
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft }}>{r.total} total · {r.ongoing} ongoing · {r.completed} completed</div>
+            </div>
+            {r.years.length === 0 ? (
+              <div style={{ color: C.khaki, fontSize: 12.5, marginTop: 8 }}>No projects filed under this scheme yet.</div>
+            ) : (
+              <table className="abstract-table">
+                <thead><tr><th>Financial Year</th><th>Total</th><th>Ongoing</th><th>Completed</th></tr></thead>
+                <tbody>
+                  {r.years.map((y) => (
+                    <tr key={y}>
+                      <td>{y === 'Unspecified' ? '—' : `FY ${y}`}</td>
+                      <td>{r.byYear[y].total}</td>
+                      <td style={{ color: C.rust }}>{r.byYear[y].ongoing}</td>
+                      <td style={{ color: C.navy }}>{r.byYear[y].completed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MonthlyProgressSection({ schemes, entries, onAdd, onOpenFile, onDelete }) {
+  const categories = [...schemes.map((s) => ({ id: s.id, label: s.name })), { id: 'buildings', label: 'Buildings' }];
+  const [categoryId, setCategoryId] = useState(categories[0] ? categories[0].id : 'buildings');
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const inputRef = useRef(null);
+  const [pendingFiles, setPendingFiles] = useState(null);
+
+  function submit() {
+    if (!pendingFiles || !pendingFiles.length) { alert('Please choose an Excel file to upload.'); return; }
+    const cat = categories.find((c) => c.id === categoryId);
+    onAdd(categoryId, cat ? cat.label : categoryId, month, pendingFiles);
+    setPendingFiles(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  const sorted = [...entries].sort((a, b) => b.month.localeCompare(a.month) || b.createdAt - a.createdAt);
+  const grouped = {};
+  sorted.forEach((e) => { (grouped[e.categoryLabel] = grouped[e.categoryLabel] || []).push(e); });
+
+  return (
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Monthly Progress Reports</div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>Upload the monthly progress Excel sheet for each scheme to track it over time.</div>
+
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div><label style={labelStyle}>Scheme / category</label>
+            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="input" style={{ width: 170 }}>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </div>
+          <div><label style={labelStyle}>Month</label><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input" style={{ width: 150 }} /></div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label style={labelStyle}>Excel file</label>
+            <input ref={inputRef} type="file" accept={ACCEPT_SHEET} onChange={(e) => setPendingFiles(e.target.files)} style={{ fontSize: 12.5 }} />
+          </div>
+          <button onClick={submit} className="btn-primary"><Upload size={13} style={{ marginRight: 5 }} /> Upload</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        {Object.keys(grouped).length === 0 ? <div style={{ color: C.khaki, fontSize: 13 }}>No monthly reports uploaded yet.</div> : (
+          Object.keys(grouped).map((label) => (
+            <div key={label} style={{ marginBottom: 18 }}>
+              <div style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 13, color: C.navy, borderBottom: `1px solid ${C.line}`, paddingBottom: 4, marginBottom: 6 }}>{label}</div>
+              {grouped[label].map((e) => (
+                <div key={e.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 4px', borderBottom: `1px solid ${C.lineSoft}`, flexWrap: 'wrap' }}>
+                  <FileSpreadsheet size={16} color={C.navy} />
+                  <div style={{ flex: 1, minWidth: 100 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>{e.month}</div>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.inkSoft }}>{(e.fileIds || []).length} file{(e.fileIds || []).length !== 1 ? 's' : ''}</div>
+                  </div>
+                  {(e.fileIds || []).map((fid) => (
+                    <button key={fid} onClick={() => onOpenFile(fid)} className="btn-ghost" style={{ padding: '4px 9px', fontSize: 11.5 }}><Eye size={12} style={{ marginRight: 4 }} />View</button>
+                  ))}
+                  <ConfirmDelete onConfirm={() => onDelete(e.id)} label="Delete report" />
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProposalsSection({ kind, entries, schemes, subSchemes, onAdd, onOpenFile, onDelete }) {
+  const isAmp = kind === 'amp';
+  const [fy, setFy] = useState(currentFY());
+  const [schemeId, setSchemeId] = useState('');
+  const [subSchemeId, setSubSchemeId] = useState('');
+  const [projectType, setProjectType] = useState('Road');
+  const [status, setStatus] = useState('Proposed');
+  const [notes, setNotes] = useState('');
+  const inputRef = useRef(null);
+  const [pendingFiles, setPendingFiles] = useState(null);
+
+  const schemeSubs = subSchemes.filter((ss) => ss.schemeId === schemeId);
+
+  function submit() {
+    if (!pendingFiles || !pendingFiles.length) { alert('Please choose at least one file to attach.'); return; }
+    onAdd({ financialYear: fy || currentFY(), schemeId: schemeId || null, subSchemeId: subSchemeId || null, projectType: isAmp ? null : projectType, status, notes }, pendingFiles);
+    setNotes(''); setPendingFiles(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  const sorted = [...entries].sort((a, b) => b.financialYear.localeCompare(a.financialYear) || b.createdAt - a.createdAt);
+  const grouped = {};
+  sorted.forEach((e) => { (grouped[e.financialYear] = grouped[e.financialYear] || []).push(e); });
+
+  return (
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{isAmp ? 'Annual Maintenance Plan' : 'Scheme Proposals'}</div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>
+        {isAmp ? 'Proposed and approved maintenance plans, filed by financial year.' : 'Road, bridge and building proposals, filed by scheme and financial year.'}
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div><label style={labelStyle}>Financial year</label><input value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2026-27" className="input" style={{ width: 100 }} /></div>
+          <div><label style={labelStyle}>Scheme{isAmp ? ' (optional)' : ''}</label>
+            <select value={schemeId} onChange={(e) => { setSchemeId(e.target.value); setSubSchemeId(''); }} className="input" style={{ width: 150 }}>
+              <option value="">{isAmp ? 'General' : 'Select scheme'}</option>
+              {schemes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          {schemeSubs.length > 0 && (
+            <div><label style={labelStyle}>Sub-scheme</label>
+              <select value={subSchemeId} onChange={(e) => setSubSchemeId(e.target.value)} className="input" style={{ width: 150 }}>
+                <option value="">— none —</option>
+                {schemeSubs.map((ss) => <option key={ss.id} value={ss.id}>{ss.name}</option>)}
+              </select>
+            </div>
+          )}
+          {!isAmp && (
+            <div><label style={labelStyle}>Work type</label>
+              <select value={projectType} onChange={(e) => setProjectType(e.target.value)} className="input" style={{ width: 120 }}>
+                {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
+          <div><label style={labelStyle}>Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="input" style={{ width: 120 }}>
+              {PROPOSAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <label style={labelStyle}>Notes (optional)</label>
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="e.g. covers 12 roads, 4 blocks" />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+          <input ref={inputRef} type="file" multiple accept={ACCEPT_DOC} onChange={(e) => setPendingFiles(e.target.files)} style={{ fontSize: 12.5 }} />
+          <button onClick={submit} className="btn-primary"><Upload size={13} style={{ marginRight: 5 }} /> File this entry</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        {Object.keys(grouped).length === 0 ? <div style={{ color: C.khaki, fontSize: 13, padding: '10px 4px' }}>Nothing filed yet.</div> : (
+          Object.keys(grouped).sort().reverse().map((fyKey) => (
+            <div key={fyKey} style={{ marginBottom: 18 }}>
+              <div style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: 13, color: C.navy, borderBottom: `1px solid ${C.line}`, paddingBottom: 4, marginBottom: 6 }}>FY {fyKey}</div>
+              {grouped[fyKey].map((e) => {
+                const scheme = schemes.find((s) => s.id === e.schemeId);
+                const sub = subSchemes.find((s) => s.id === e.subSchemeId);
+                return (
+                  <div key={e.id} className="row-hover" style={{ padding: '9px 4px', borderBottom: `1px solid ${C.lineSoft}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500 }}>{scheme ? scheme.name : 'General'}{sub ? ` · ${sub.name}` : ''}{e.projectType ? ` · ${e.projectType}` : ''}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, padding: '2px 8px', borderRadius: 20, border: `1px solid ${e.status === 'Approved' ? C.navy : C.rust}`, color: e.status === 'Approved' ? C.navy : C.rust }}>{e.status}</span>
+                        <ConfirmDelete onConfirm={() => onDelete(e.id)} label="Delete entry" />
+                      </div>
+                    </div>
+                    {e.notes && <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 3 }}>{e.notes}</div>}
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 5 }}>
+                      {(e.fileIds || []).map((fid) => (
+                        <button key={fid} onClick={() => onOpenFile(fid)} className="btn-ghost" style={{ padding: '3px 8px', fontSize: 11.5 }}><FileText size={12} style={{ marginRight: 4 }} /> View file</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FileViewerModal({ meta, dataUrl, onClose }) {
+  const isImage = meta.mimeType && meta.mimeType.startsWith('image/');
+  const isPdf = meta.mimeType === 'application/pdf';
+  const isSheet = meta.mimeType && (meta.mimeType.includes('sheet') || meta.mimeType.includes('excel') || meta.mimeType.includes('csv') || /\.(xlsx|xls|csv)$/i.test(meta.name || ''));
+  const [rows, setRows] = useState(null);
+  const [sheetError, setSheetError] = useState(false);
+
+  useEffect(() => {
+    if (isSheet) {
+      try {
+        const base64 = dataUrl.split(',')[1];
+        const wb = XLSX.read(base64, { type: 'base64' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        setRows(data.slice(0, 300));
+      } catch (e) { setSheetError(true); }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,13,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: isImage ? 'transparent' : '#fff', maxWidth: '92vw', maxHeight: '90vh', width: (isPdf || isSheet) ? 820 : undefined, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isImage ? '0 0 8px' : '10px 14px', color: isImage ? C.paper : C.ink, borderBottom: isImage ? 'none' : `1px solid ${C.line}` }}>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600 }}>{meta.name}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: isImage ? C.paper : C.ink, cursor: 'pointer' }}><X size={19} /></button>
+        </div>
+
+        {isImage && <img src={dataUrl} alt={meta.name} style={{ maxWidth: '90vw', maxHeight: '74vh', display: 'block', borderRadius: 6 }} />}
+        {isPdf && <iframe src={dataUrl} title={meta.name} style={{ width: '100%', height: '70vh', border: 'none' }} />}
+        {isSheet && (
+          sheetError ? <div style={{ padding: 20, fontSize: 13, color: C.inkSoft }}>Couldn't preview this spreadsheet. Download it instead.</div> :
+          !rows ? <div style={{ padding: 20, fontSize: 13, color: C.inkSoft }}>Loading preview…</div> :
+          <div style={{ overflow: 'auto', maxHeight: '70vh', padding: 10 }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 12, fontFamily: FONT_MONO }}>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>{r.map((c, j) => <td key={j} style={{ border: `1px solid ${C.lineSoft}`, padding: '4px 7px', whiteSpace: 'nowrap' }}>{String(c)}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!isImage && !isPdf && !isSheet && <div style={{ padding: 20, fontSize: 13, color: C.inkSoft }}>Preview isn't available for this file type. Use download below.</div>}
+
+        <div style={{ padding: isImage ? '10px 0 0' : '10px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => downloadDataUrl(dataUrl, meta.name)} className="btn-ghost" style={{ color: isImage ? C.paper : C.inkSoft, borderColor: isImage ? C.paper : C.line }}>
+            <Download size={13} style={{ marginRight: 5 }} /> Download
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------- styles ---------------------------------- */
+
+const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: C.inkSoft, marginBottom: 3 };
+
+
+const rootEl = document.getElementById('root');
+ReactDOM.createRoot(rootEl).render(React.createElement(ProjectRegister));
+
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(function(){});
+}
+
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('service-worker.js').catch(function (err) {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>

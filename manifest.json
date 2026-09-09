@@ -1,0 +1,14 @@
+{
+  "name": "Site & Project Register",
+  "short_name": "Site Register",
+  "description": "Offline-first register for road, bridge and building projects, documents and site visits.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EDEFE6",
+  "theme_color": "#212B21",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
