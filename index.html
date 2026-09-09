@@ -294,6 +294,29 @@ const DEFAULT_SCHEMES = [
 const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
 const ACCEPT_DOC = '.pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv,application/pdf,image/*,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const ACCEPT_SHEET = '.xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const CONSTITUENCIES = ['Basta', 'Jaleswar'];
+
+function inferTypeFromScheme(schemeName) {
+  const n = (schemeName || '').trim().toUpperCase();
+  if (n === 'PMGSY' || n === 'MMSY') return 'Road';
+  if (n === 'BSY') return 'Bridge';
+  if (n === 'BUILDINGS' || n === 'BUILDING') return 'Building';
+  return null;
+}
+
+function fyOptionsList() {
+  const cur = currentFYYear();
+  const years = [];
+  for (let y = cur + 2; y >= cur - 12; y--) years.push(`${y}-${String(y + 1).slice(-2)}`);
+  return years;
+}
+
+function groupProjectsByYear(list) {
+  const byYear = {};
+  list.forEach((p) => { const y = p.year || 'Unspecified'; (byYear[y] = byYear[y] || []).push(p); });
+  const years = Object.keys(byYear).sort((a, b) => (a === 'Unspecified' ? 1 : b === 'Unspecified' ? -1 : b.localeCompare(a)));
+  return years.map((y) => [y, byYear[y]]);
+}
 
 const TABS = [
   { id: 'documents', label: 'Documents', icon: FileText },
@@ -316,10 +339,13 @@ const NAV_SECTIONS = [
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
-function currentFY() {
+function currentFYYear() {
   const d = new Date();
   const y = d.getFullYear();
-  const startYear = (d.getMonth() + 1) >= 4 ? y : y - 1;
+  return (d.getMonth() + 1) >= 4 ? y : y - 1;
+}
+function currentFY() {
+  const startYear = currentFYYear();
   return `${startYear}-${String(startYear + 1).slice(-2)}`;
 }
 function fmtDate(s) {
@@ -397,13 +423,18 @@ function loadAnyFile(file) {
     reader.readAsDataURL(file);
   });
 }
-function getLocation() {
+function getLocation(timeoutMs) {
   return new Promise((resolve) => {
-    if (!navigator.geolocation) { resolve(null); return; }
+    if (!navigator.geolocation) { resolve({ ok: false, reason: 'Location is not supported by this browser.' }); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      (pos) => resolve({ ok: true, lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => {
+        let reason = 'Could not get location.';
+        if (err && err.code === 1) reason = 'Location permission denied. Enable it in your browser/site settings.';
+        else if (err && err.code === 3) reason = 'Getting location timed out — try again with a clearer sky view.';
+        resolve({ ok: false, reason });
+      },
+      { enableHighAccuracy: true, timeout: timeoutMs || 10000, maximumAge: 20000 }
     );
   });
 }
@@ -510,7 +541,7 @@ function buildAbstractWorkbook({ schemes, subSchemes, projects, fileIndex, fileM
     const gList = grievances[p.id] || [];
     return {
       Project: p.name, Scheme: scheme ? scheme.name : '', 'Sub-scheme': sub ? sub.name : '',
-      Type: p.type, 'Financial Year': p.year || '', Status: p.status || 'Ongoing', Location: p.location,
+      Type: p.type, 'Financial Year': p.year || '', Status: p.status || 'Ongoing', Constituency: p.constituency || '', Location: p.location,
       Documents: docs, 'Progress Reports': progress, Photographs: photos, 'Site Visits': (siteLogs[p.id] || []).length,
       'Grievances (Pending)': gList.filter((g) => g.status === 'Pending').length,
       'Grievances (Resolved)': gList.filter((g) => g.status === 'Resolved').length,
@@ -564,10 +595,65 @@ function ConfirmDelete({ onConfirm, variant = 'icon', label = 'Delete' }) {
   );
 }
 
+/* ------------------------------ sub-division switcher ------------------------ */
+
+function SubDivisionSwitcher({ subDivisions, activeId, onSwitch, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const active = subDivisions.find((s) => s.id === activeId);
+
+  function commitAdd() {
+    if (name.trim()) onAdd(name);
+    setName(''); setAdding(false); setOpen(false);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((o) => !o)} style={{
+        display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)',
+        borderRadius: 6, padding: '7px 11px', cursor: 'pointer', color: '#fff', fontFamily: FONT_MONO, fontSize: 12,
+      }}>
+        <MapPin size={13} />
+        <span>Sub-Division: <strong>{active ? active.name : '—'}</strong> · Block: {active ? active.name : '—'}</span>
+        <ChevronDown size={13} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', minWidth: 220, zIndex: 50, overflow: 'hidden' }}>
+          {subDivisions.map((s) => (
+            <button key={s.id} onClick={() => { onSwitch(s.id); setOpen(false); }} style={{
+              display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: s.id === activeId ? C.paperDark : 'none',
+              border: 'none', borderBottom: `1px solid ${C.lineSoft}`, cursor: 'pointer', fontSize: 13, color: C.ink, fontWeight: s.id === activeId ? 700 : 500,
+            }}>
+              {s.name} {s.id === activeId && <span style={{ color: C.rust }}>●</span>}
+            </button>
+          ))}
+          {adding ? (
+            <div style={{ padding: 10 }}>
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="New sub-division name" className="input"
+                onKeyDown={(e) => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setName(''); } }} />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <button onClick={commitAdd} className="btn-primary" style={{ padding: '5px 10px', fontSize: 12 }}>Add</button>
+                <button onClick={() => { setAdding(false); setName(''); }} className="btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.rust, fontWeight: 600 }}>
+              <Plus size={14} /> Add sub-division
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------- app ---------------------------------- */
 
 function ProjectRegister() {
   const [loaded, setLoaded] = useState(false);
+  const [subDivisions, setSubDivisions] = useState([]);
+  const [activeSubDivisionId, setActiveSubDivisionId] = useState(null);
   const [schemes, setSchemes] = useState([]);
   const [subSchemes, setSubSchemes] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -596,40 +682,85 @@ function ProjectRegister() {
 
   const skipSaveRef = useRef(true);
 
+  /* -------------------------- load a sub-division's data ----------------------- */
+
+  async function loadSubDivisionData(subId) {
+    let app = await storageGet('appdata:' + subId);
+    if (!app) {
+      app = {
+        schemes: DEFAULT_SCHEMES, subSchemes: [], projects: [], siteLogs: {}, grievances: {},
+        fieldLogs: [], ampEntries: [], proposalEntries: [], monthlyReports: [], settings: { mileage: 15 }, fileIndex: {},
+      };
+      await storageSet('appdata:' + subId, app);
+    }
+    setSchemes(app.schemes || DEFAULT_SCHEMES);
+    setSubSchemes(app.subSchemes || []);
+    setProjects(app.projects || []);
+    setSiteLogs(app.siteLogs || {});
+    setGrievances(app.grievances || {});
+    setFieldLogs(app.fieldLogs || []);
+    setAmpEntries(app.ampEntries || []);
+    setProposalEntries(app.proposalEntries || []);
+    setMonthlyReports(app.monthlyReports || []);
+    setSettings(app.settings || { mileage: 15 });
+    setFileIndex(app.fileIndex || {});
+
+    const allIds = Object.values(app.fileIndex || {}).flat();
+    const metas = {};
+    if (allIds.length) {
+      for (const id of allIds) { const m = await storageGet('filemeta:' + id); if (m) metas[id] = m; }
+    }
+    setFileMetas(metas);
+    setPhotoBlobs({});
+    const initialExpanded = {};
+    (app.schemes || DEFAULT_SCHEMES).forEach((s) => { initialExpanded[s.id] = true; });
+    setExpanded(initialExpanded);
+    setExpandedSub({});
+    setSelectedProjectId(null);
+    setSection('register');
+    setActiveTab('documents');
+  }
+
+  async function switchSubDivision(id) {
+    if (!id || id === activeSubDivisionId) return;
+    skipSaveRef.current = true;
+    setLoaded(false);
+    await loadSubDivisionData(id);
+    setActiveSubDivisionId(id);
+    await storageSet('subdivisions-meta', { list: subDivisions, activeId: id });
+    setLoaded(true);
+    setTimeout(() => { skipSaveRef.current = false; }, 0);
+  }
+
+  async function addSubDivision(name) {
+    const clean = name.trim(); if (!clean) return;
+    const id = uid();
+    const newList = [...subDivisions, { id, name: clean }];
+    setSubDivisions(newList);
+    skipSaveRef.current = true;
+    setLoaded(false);
+    await loadSubDivisionData(id);
+    setActiveSubDivisionId(id);
+    await storageSet('subdivisions-meta', { list: newList, activeId: id });
+    setLoaded(true);
+    setTimeout(() => { skipSaveRef.current = false; }, 0);
+  }
+
   /* ------------------------------- load on mount ------------------------------ */
 
   useEffect(() => {
     (async () => {
-      let app = await storageGet('appdata');
-      if (!app) {
-        app = {
-          schemes: DEFAULT_SCHEMES, subSchemes: [], projects: [], siteLogs: {}, grievances: {},
-          fieldLogs: [], ampEntries: [], proposalEntries: [], monthlyReports: [], settings: { mileage: 15 }, fileIndex: {},
-        };
-        await storageSet('appdata', app);
+      let meta = await storageGet('subdivisions-meta');
+      if (!meta) {
+        const legacy = await storageGet('appdata');
+        const defaultId = uid();
+        if (legacy) { await storageSet('appdata:' + defaultId, legacy); }
+        meta = { list: [{ id: defaultId, name: 'Basta' }], activeId: defaultId };
+        await storageSet('subdivisions-meta', meta);
       }
-      setSchemes(app.schemes || DEFAULT_SCHEMES);
-      setSubSchemes(app.subSchemes || []);
-      setProjects(app.projects || []);
-      setSiteLogs(app.siteLogs || {});
-      setGrievances(app.grievances || {});
-      setFieldLogs(app.fieldLogs || []);
-      setAmpEntries(app.ampEntries || []);
-      setProposalEntries(app.proposalEntries || []);
-      setMonthlyReports(app.monthlyReports || []);
-      setSettings(app.settings || { mileage: 15 });
-      setFileIndex(app.fileIndex || {});
-
-      const allIds = Object.values(app.fileIndex || {}).flat();
-      if (allIds.length) {
-        const metas = {};
-        for (const id of allIds) { const m = await storageGet('filemeta:' + id); if (m) metas[id] = m; }
-        setFileMetas(metas);
-      }
-      const initialExpanded = {};
-      (app.schemes || DEFAULT_SCHEMES).forEach((s) => { initialExpanded[s.id] = true; });
-      setExpanded(initialExpanded);
-
+      setSubDivisions(meta.list || []);
+      setActiveSubDivisionId(meta.activeId);
+      await loadSubDivisionData(meta.activeId);
       setLoaded(true);
       setTimeout(() => { skipSaveRef.current = false; }, 0);
     })();
@@ -639,11 +770,12 @@ function ProjectRegister() {
 
   useEffect(() => {
     if (skipSaveRef.current) return;
-    storageSet('appdata', {
+    if (!activeSubDivisionId) return;
+    storageSet('appdata:' + activeSubDivisionId, {
       schemes, subSchemes, projects, siteLogs, grievances, fieldLogs,
       ampEntries, proposalEntries, monthlyReports, settings, fileIndex,
     });
-  }, [schemes, subSchemes, projects, siteLogs, grievances, fieldLogs, ampEntries, proposalEntries, monthlyReports, settings, fileIndex]);
+  }, [schemes, subSchemes, projects, siteLogs, grievances, fieldLogs, ampEntries, proposalEntries, monthlyReports, settings, fileIndex, activeSubDivisionId]);
 
   /* ------------------------------- derived data ------------------------------- */
 
@@ -677,7 +809,7 @@ function ProjectRegister() {
     const proj = {
       id, schemeId, subSchemeId: subSchemeId || null,
       name: data.name.trim(), type: data.type, location: data.location.trim(),
-      year: data.year || currentFY(), status: 'Ongoing',
+      year: data.year || currentFY(), status: 'Ongoing', constituency: data.constituency || CONSTITUENCIES[0],
     };
     setProjects((prev) => [...prev, proj]);
     setAddProjectTarget(null);
@@ -772,31 +904,49 @@ function ProjectRegister() {
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     const project = projects.find((p) => p.id === projectId);
-    const lines = loc
+    const lines = loc.ok
       ? [`${dateStr}  ${timeStr}`, `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`, project ? project.name : '']
       : [`${dateStr}  ${timeStr}`, 'Location unavailable', project ? project.name : ''];
 
     setBusyMsg('Saving photo…');
+    let savedCount = 0;
+    const failures = [];
     for (const file of Array.from(fileList)) {
       try {
         const raw = await loadAnyFile(file);
-        const stamped = await stampAndCompressImage(raw, lines);
-        await saveFile(projectId, 'photo', {
-          category: 'Photo', name: file.name || `photo-${uid()}.jpg`, mimeType: 'image/jpeg', date: todayStr(),
-          notes: loc ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : 'Location unavailable',
-        }, stamped);
-      } catch (e) { console.error(e); }
+        let dataToSave = raw;
+        let mime = file.type || 'image/jpeg';
+        try {
+          dataToSave = await stampAndCompressImage(raw, lines);
+          mime = 'image/jpeg';
+        } catch (stampErr) {
+          console.error('Stamping failed, saving original photo instead:', stampErr);
+          // fall back to the original, un-stamped photo rather than losing it entirely
+        }
+        const id = await saveFile(projectId, 'photo', {
+          category: 'Photo', name: file.name || `photo-${uid()}.jpg`, mimeType: mime, date: todayStr(),
+          notes: loc.ok ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : (loc.reason || 'Location unavailable'),
+        }, dataToSave);
+        if (id) savedCount++; else failures.push(file.name || 'photo');
+      } catch (e) {
+        console.error(e);
+        failures.push(file.name || 'photo');
+      }
     }
     setBusyMsg('');
     loadPhotosForProject(projectId);
+    if (failures.length) {
+      alert(`${savedCount} photo${savedCount !== 1 ? 's' : ''} saved. ${failures.length} failed to save (${failures.join(', ')}). Please try again, or check available storage on your device.`);
+    }
+    return { savedCount, locOk: loc.ok, locReason: loc.reason };
   }
 
   async function addSiteLog(projectId, entry) {
-    let geo = null;
-    if (entry.useLocation) { setBusyMsg('Getting location…'); geo = await getLocation(); setBusyMsg(''); }
+    let geo = { ok: false };
+    if (entry.useLocation) { setBusyMsg('Getting location…'); geo = await getLocation(); setBusyMsg(''); if (!geo.ok && geo.reason) alert(geo.reason); }
     const log = {
       id: uid(), date: entry.date || todayStr(), visitedBy: entry.visitedBy || '', notes: entry.notes || '',
-      weather: entry.weather || '', lat: geo ? geo.lat : null, lng: geo ? geo.lng : null, createdAt: Date.now(),
+      weather: entry.weather || '', lat: geo.ok ? geo.lat : null, lng: geo.ok ? geo.lng : null, createdAt: Date.now(),
     };
     setSiteLogs((prev) => ({ ...prev, [projectId]: [log, ...(prev[projectId] || [])] }));
   }
@@ -894,6 +1044,7 @@ function ProjectRegister() {
   return (
     <div style={{ fontFamily: FONT_SANS, background: C.paper, color: C.ink, minHeight: 600, display: 'flex', flexDirection: 'column' }}>
       <style>{FONT_IMPORT}{GLOBAL_CSS}</style>
+      <datalist id="fy-options">{fyOptionsList().map((y) => <option key={y} value={y} />)}</datalist>
       <div style={{ height: 3, background: C.rust }} />
 
       {/* ---- header ---- */}
@@ -907,11 +1058,14 @@ function ProjectRegister() {
             </div>
           </div>
         </div>
-        {busyMsg && (
-          <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: '#FDE68A', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Loader2 size={13} className="animate-spin" /> {busyMsg}
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {busyMsg && (
+            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: '#FDE68A', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Loader2 size={13} className="animate-spin" /> {busyMsg}
+            </div>
+          )}
+          <SubDivisionSwitcher subDivisions={subDivisions} activeId={activeSubDivisionId} onSwitch={switchSubDivision} onAdd={addSubDivision} />
+        </div>
       </div>
 
       {/* ---- section nav ---- */}
@@ -971,12 +1125,17 @@ function ProjectRegister() {
 
                               {subOpen && (
                                 <div style={{ paddingLeft: 20 }}>
-                                  {subProjects.map((proj) => (
-                                    <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
-                                      onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                                  {groupProjectsByYear(subProjects).map(([yr, plist]) => (
+                                    <div key={yr} style={{ marginBottom: 4 }}>
+                                      {subProjects.length > 3 && <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: C.khaki, padding: '3px 6px 1px' }}>{yr === 'Unspecified' ? 'NO YEAR' : `FY ${yr}`}</div>}
+                                      {plist.map((proj) => (
+                                        <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
+                                          onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                                      ))}
+                                    </div>
                                   ))}
                                   {isAddingHere ? (
-                                    <AddProjectForm onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, sub.id, data)} />
+                                    <AddProjectForm schemeName={scheme.name} onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, sub.id, data)} />
                                   ) : (
                                     <button onClick={() => setAddProjectTarget({ schemeId: scheme.id, subSchemeId: sub.id })}
                                       style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, padding: '5px 6px', background: 'none', border: 'none', cursor: 'pointer', color: C.rust, fontSize: 12, fontWeight: 500 }}>
@@ -994,12 +1153,17 @@ function ProjectRegister() {
                             {schemeSubs.length > 0 && directProjects.length > 0 && (
                               <div style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: C.khaki, padding: '2px 6px', marginBottom: 2 }}>GENERAL</div>
                             )}
-                            {directProjects.map((proj) => (
-                              <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
-                                onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                            {groupProjectsByYear(directProjects).map(([yr, plist]) => (
+                              <div key={yr} style={{ marginBottom: 4 }}>
+                                {directProjects.length > 3 && <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: C.khaki, padding: '3px 6px 1px' }}>{yr === 'Unspecified' ? 'NO YEAR' : `FY ${yr}`}</div>}
+                                {plist.map((proj) => (
+                                  <ProjectRow key={proj.id} proj={proj} selected={selectedProjectId === proj.id}
+                                    onSelect={() => { setSelectedProjectId(proj.id); setActiveTab('documents'); setSidebarOpen(false); }} />
+                                ))}
+                              </div>
                             ))}
                             {addProjectTarget && addProjectTarget.schemeId === scheme.id && !addProjectTarget.subSchemeId ? (
-                              <AddProjectForm onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, null, data)} />
+                              <AddProjectForm schemeName={scheme.name} onCancel={() => setAddProjectTarget(null)} onSave={(data) => addProject(scheme.id, null, data)} />
                             ) : (
                               <button onClick={() => setAddProjectTarget({ schemeId: scheme.id, subSchemeId: null })}
                                 style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, padding: '6px 6px', background: 'none', border: 'none', cursor: 'pointer', color: C.rust, fontSize: 12.5, fontWeight: 500 }}>
@@ -1160,25 +1324,71 @@ function AddSchemeForm({ onCancel, onSave }) {
   );
 }
 
-function AddProjectForm({ onCancel, onSave }) {
+function AddProjectForm({ onCancel, onSave, schemeName }) {
+  const autoType = inferTypeFromScheme(schemeName);
   const [name, setName] = useState('');
-  const [type, setType] = useState('Road');
+  const [type, setType] = useState(autoType || 'Road');
   const [location, setLocation] = useState('');
   const [year, setYear] = useState(currentFY());
+  const [constituency, setConstituency] = useState(CONSTITUENCIES[0]);
   return (
     <div className="card" style={{ marginTop: 6, padding: 10 }}>
       <label style={labelStyle}>Project name</label>
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kantapada–Baisipalli Road" className="input" />
       <label style={{ ...labelStyle, marginTop: 8 }}>Type</label>
-      <select value={type} onChange={(e) => setType(e.target.value)} className="input">
-        {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
+      {autoType ? (
+        <div style={{ fontSize: 12.5, padding: '7px 9px', background: C.paperDark, borderRadius: 5, color: C.inkSoft }}>{autoType} <span style={{ fontFamily: FONT_MONO, fontSize: 10.5 }}>(set automatically for {schemeName})</span></div>
+      ) : (
+        <select value={type} onChange={(e) => setType(e.target.value)} className="input">
+          {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      )}
       <label style={{ ...labelStyle, marginTop: 8 }}>Financial year</label>
-      <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026-27" className="input" />
+      <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026-27" className="input" list="fy-options" />
+      <label style={{ ...labelStyle, marginTop: 8 }}>Constituency</label>
+      <select value={constituency} onChange={(e) => setConstituency(e.target.value)} className="input">
+        {CONSTITUENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
       <label style={{ ...labelStyle, marginTop: 8 }}>Location</label>
       <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Block / GP" className="input" />
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <button onClick={() => name.trim() && onSave({ name, type, location, year })} className="btn-primary">Save project</button>
+        <button onClick={() => name.trim() && onSave({ name, type: autoType || type, location, year, constituency })} className="btn-primary">Save project</button>
+        <button onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function EditProjectForm({ project, scheme, onCancel, onSave }) {
+  const autoType = inferTypeFromScheme(scheme ? scheme.name : '');
+  const [name, setName] = useState(project.name);
+  const [type, setType] = useState(project.type);
+  const [location, setLocation] = useState(project.location || '');
+  const [year, setYear] = useState(project.year || currentFY());
+  const [constituency, setConstituency] = useState(project.constituency || CONSTITUENCIES[0]);
+  return (
+    <div className="card" style={{ padding: 14, marginBottom: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Edit project details</div>
+      <label style={labelStyle}>Project name</label>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="input" />
+      <label style={{ ...labelStyle, marginTop: 8 }}>Type</label>
+      {autoType ? (
+        <div style={{ fontSize: 12.5, padding: '7px 9px', background: C.paperDark, borderRadius: 5, color: C.inkSoft }}>{autoType} <span style={{ fontFamily: FONT_MONO, fontSize: 10.5 }}>(set automatically for {scheme ? scheme.name : ''})</span></div>
+      ) : (
+        <select value={type} onChange={(e) => setType(e.target.value)} className="input">
+          {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      )}
+      <label style={{ ...labelStyle, marginTop: 8 }}>Financial year</label>
+      <input value={year} onChange={(e) => setYear(e.target.value)} className="input" list="fy-options" />
+      <label style={{ ...labelStyle, marginTop: 8 }}>Constituency</label>
+      <select value={constituency} onChange={(e) => setConstituency(e.target.value)} className="input">
+        {CONSTITUENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <label style={{ ...labelStyle, marginTop: 8 }}>Location</label>
+      <input value={location} onChange={(e) => setLocation(e.target.value)} className="input" placeholder="Block / GP" />
+      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        <button onClick={() => name.trim() && onSave({ name: name.trim(), type: autoType || type, location: location.trim(), year, constituency })} className="btn-primary">Save changes</button>
         <button onClick={onCancel} className="btn-ghost">Cancel</button>
       </div>
     </div>
@@ -1192,9 +1402,15 @@ function ProjectPanel(props) {
     siteLogs, onAddSiteLog, onDeleteSiteLog, grievances, onAddGrievance, onUpdateGrievance, onDeleteGrievance,
   } = props;
   const done = project.status === 'Completed';
+  const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div>
+      {editing ? (
+        <EditProjectForm project={project} scheme={scheme} onCancel={() => setEditing(false)}
+          onSave={(patch) => { onUpdateProject(patch); setEditing(false); }} />
+      ) : (
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1202,13 +1418,26 @@ function ProjectPanel(props) {
             <button onClick={() => onUpdateProject({ status: done ? 'Ongoing' : 'Completed' })} className={`status-pill ${done ? 'status-pill-done' : 'status-pill-ongoing'}`}>
               {done ? <CheckCircle2 size={13} /> : <Clock size={13} />} {done ? 'Completed' : 'Ongoing'}
             </button>
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setMenuOpen((o) => !o)} className="icon-btn" title="More options">
+                <span style={{ fontWeight: 700, fontSize: 18, lineHeight: 1 }}>⋯</span>
+              </button>
+              {menuOpen && (
+                <div onMouseLeave={() => setMenuOpen(false)} style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', minWidth: 160, zIndex: 40, overflow: 'hidden' }}>
+                  <button onClick={() => { setEditing(true); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink }}>
+                    Edit details
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginTop: 6 }}>
-            {scheme ? scheme.name : ''}{subScheme ? ` · ${subScheme.name}` : ''} · {project.type} · FY {project.year || '—'}{project.location ? ` · ${project.location}` : ''}
+            {scheme ? scheme.name : ''}{subScheme ? ` · ${subScheme.name}` : ''} · {project.type} · FY {project.year || '—'}{project.constituency ? ` · ${project.constituency}` : ''}{project.location ? ` · ${project.location}` : ''}
           </div>
         </div>
         <ConfirmDelete onConfirm={onDeleteProject} variant="button" label="Delete project" />
       </div>
+      )}
 
       <div style={{ display: 'flex', gap: 2, marginTop: 18, borderBottom: `2px solid ${C.ink}`, flexWrap: 'wrap' }}>
         {TABS.map((t) => {
@@ -1320,18 +1549,48 @@ function PhotosTab({ projectId, files, photoBlobs, onCapturePhotos, onDeleteFile
   const galleryRef = useRef(null);
   const sorted = [...files].sort((a, b) => b.createdAt - a.createdAt);
   const [preview, setPreview] = useState(null);
+  const [locStatus, setLocStatus] = useState(null); // null | 'checking' | {ok,...}
+  const [capturing, setCapturing] = useState(false);
+
+  async function checkLocation() {
+    setLocStatus('checking');
+    const res = await getLocation();
+    setLocStatus(res);
+  }
+
+  async function handleCapture(fileList) {
+    setCapturing(true);
+    await onCapturePhotos(projectId, fileList);
+    setCapturing(false);
+  }
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-          onChange={(e) => { if (e.target.files && e.target.files.length) onCapturePhotos(projectId, e.target.files); e.target.value = ''; }} />
+          onChange={(e) => { if (e.target.files && e.target.files.length) handleCapture(e.target.files); e.target.value = ''; }} />
         <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-          onChange={(e) => { if (e.target.files && e.target.files.length) onCapturePhotos(projectId, e.target.files); e.target.value = ''; }} />
-        <button onClick={() => cameraRef.current.click()} className="btn-primary"><Camera size={13} style={{ marginRight: 5 }} /> Take photo</button>
-        <button onClick={() => galleryRef.current.click()} className="btn-ghost"><Upload size={13} style={{ marginRight: 5 }} /> Upload from gallery</button>
+          onChange={(e) => { if (e.target.files && e.target.files.length) handleCapture(e.target.files); e.target.value = ''; }} />
+        <button onClick={() => cameraRef.current.click()} className="btn-primary" disabled={capturing}>
+          {capturing ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 5 }} /> : <Camera size={13} style={{ marginRight: 5 }} />} Take photo
+        </button>
+        <button onClick={() => galleryRef.current.click()} className="btn-ghost" disabled={capturing}><Upload size={13} style={{ marginRight: 5 }} /> Upload from gallery</button>
+        <button onClick={checkLocation} className="btn-ghost" style={{ fontSize: 11.5, padding: '6px 10px' }}>
+          <MapPin size={12} style={{ marginRight: 4 }} /> Check location access
+        </button>
       </div>
-      <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 8 }}>Photos are geotagged with date, time and coordinates when location access is allowed by the browser.</div>
+      <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 8 }}>
+        The date, time and GPS coordinates are stamped onto the photo itself right after it's taken (not shown live while the camera is open) — you'll see the stamp in the bottom-left corner once the photo appears below.
+      </div>
+      {locStatus === 'checking' && (
+        <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><Loader2 size={12} className="animate-spin" /> Checking location access…</div>
+      )}
+      {locStatus && locStatus !== 'checking' && locStatus.ok && (
+        <div style={{ fontSize: 11.5, color: C.success, marginTop: 4 }}>✓ Location access is working ({locStatus.lat.toFixed(5)}, {locStatus.lng.toFixed(5)}). New photos will be geotagged.</div>
+      )}
+      {locStatus && locStatus !== 'checking' && !locStatus.ok && (
+        <div style={{ fontSize: 11.5, color: C.danger, marginTop: 4 }}>{locStatus.reason || 'Location unavailable.'} Photos will still save, just without GPS coordinates.</div>
+      )}
 
       {sorted.length === 0 ? (
         <div style={{ color: C.khaki, fontSize: 13, padding: '24px 4px' }}>No photographs filed for this project yet.</div>
@@ -1692,7 +1951,7 @@ function ProposalsSection({ kind, entries, schemes, subSchemes, onAdd, onOpenFil
 
       <div className="card">
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div><label style={labelStyle}>Financial year</label><input value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2026-27" className="input" style={{ width: 100 }} /></div>
+          <div><label style={labelStyle}>Financial year</label><input value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2026-27" className="input" style={{ width: 100 }} list="fy-options" /></div>
           <div><label style={labelStyle}>Scheme{isAmp ? ' (optional)' : ''}</label>
             <select value={schemeId} onChange={(e) => { setSchemeId(e.target.value); setSubSchemeId(''); }} className="input" style={{ width: 150 }}>
               <option value="">{isAmp ? 'General' : 'Select scheme'}</option>
