@@ -1912,7 +1912,24 @@ function BackupSection({ onExport, onPrepareShare, onRestore }) {
   const [preparing, setPreparing] = useState(false);
   const [readyFile, setReadyFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [storageInfo, setStorageInfo] = useState(null); // 'unsupported' | {usageMB, quotaMB, pct}
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
+
+  useEffect(() => {
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then((est) => {
+        const usage = est.usage || 0;
+        const quota = est.quota || 0;
+        setStorageInfo({
+          usageMB: usage / (1024 * 1024),
+          quotaMB: quota / (1024 * 1024),
+          pct: quota ? Math.min(100, (usage / quota) * 100) : 0,
+        });
+      }).catch(() => setStorageInfo('unsupported'));
+    } else {
+      setStorageInfo('unsupported');
+    }
+  }, []);
 
   async function handleExportClick() {
     setExporting(true);
@@ -1994,6 +2011,26 @@ function BackupSection({ onExport, onPrepareShare, onRestore }) {
       <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>
         Your data lives only on this device. Keep a backup somewhere safe — Google Drive, email to yourself, or a computer — in case this phone is lost, reset, or the browser is uninstalled.
       </div>
+
+      {storageInfo && storageInfo !== 'unsupported' && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Storage used on this device</div>
+          <div style={{ height: 10, borderRadius: 6, background: C.lineSoft, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${Math.max(storageInfo.pct, storageInfo.pct > 0 ? 2 : 0)}%`, borderRadius: 6,
+              background: storageInfo.pct > 85 ? C.danger : storageInfo.pct > 60 ? C.warning : C.success, transition: 'width .3s ease',
+            }} />
+          </div>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.inkSoft, marginTop: 8 }}>
+            {storageInfo.usageMB < 1 ? `${(storageInfo.usageMB * 1024).toFixed(0)} KB` : `${storageInfo.usageMB.toFixed(1)} MB`} used
+            {storageInfo.quotaMB > 0 && ` of about ${storageInfo.quotaMB > 1024 ? (storageInfo.quotaMB / 1024).toFixed(1) + ' GB' : storageInfo.quotaMB.toFixed(0) + ' MB'} available on this browser`}
+            {' '}({storageInfo.pct.toFixed(1)}%)
+          </div>
+          {storageInfo.pct > 80 && (
+            <div style={{ fontSize: 11.5, color: C.danger, marginTop: 6 }}>Getting full — consider backing up and, if needed, freeing up space on your phone.</div>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Create a backup</div>
