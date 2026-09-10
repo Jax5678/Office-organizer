@@ -1078,24 +1078,10 @@ function ProjectRegister() {
     setBusyMsg('');
   }
 
-  async function shareFullBackup() {
-    setBusyMsg('Preparing backup…');
-    try {
-      const backup = await buildBackupObject();
-      const json = JSON.stringify(backup);
-      const file = new File([json], `site-register-backup-${todayStr()}.json`, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Site Register backup', text: 'Site & Project Register — full backup' });
-      } else {
-        alert('Direct sharing isn\'t supported in this browser. Use "Download full backup" instead, then upload that file to Drive from your phone\'s Files app.');
-      }
-    } catch (e) {
-      if (e && e.name !== 'AbortError') {
-        console.error(e);
-        alert('Could not share the backup: ' + (e && e.message ? e.message : 'unknown error'));
-      }
-    }
-    setBusyMsg('');
+  async function prepareBackupFile() {
+    const backup = await buildBackupObject();
+    const json = JSON.stringify(backup);
+    return new File([json], `site-register-backup-${todayStr()}.json`, { type: 'application/json' });
   }
 
   async function restoreFullBackup(backup) {
@@ -1326,7 +1312,7 @@ function ProjectRegister() {
                 onAdd={(meta, files) => addProposalOrAmp('amp', meta, files)} onOpenFile={openFileById} onDelete={deleteAmp} />
             )}
             {section === 'backup' && (
-              <BackupSection onExport={exportFullBackup} onShare={shareFullBackup} onRestore={restoreFullBackup} />
+              <BackupSection onExport={exportFullBackup} onPrepareShare={prepareBackupFile} onRestore={restoreFullBackup} />
             )}
           </div>
         )}
@@ -1918,12 +1904,13 @@ function GrievanceTab({ grievances, onAdd, onUpdate, onDelete }) {
   );
 }
 
-function BackupSection({ onExport, onShare, onRestore }) {
+function BackupSection({ onExport, onPrepareShare, onRestore }) {
   const [pending, setPending] = useState(null);
   const [fileName, setFileName] = useState('');
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [sharing, setSharing] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [readyFile, setReadyFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
 
@@ -1933,10 +1920,36 @@ function BackupSection({ onExport, onShare, onRestore }) {
     setExporting(false);
   }
 
-  async function handleShareClick() {
-    setSharing(true);
-    await onShare();
-    setSharing(false);
+  async function handlePrepareShare() {
+    setPreparing(true);
+    setReadyFile(null);
+    try {
+      const file = await onPrepareShare();
+      setReadyFile(file);
+    } catch (e) {
+      console.error(e);
+      alert('Could not prepare the backup: ' + (e && e.message ? e.message : 'unknown error'));
+    }
+    setPreparing(false);
+  }
+
+  // Called directly by the click — nothing async runs before navigator.share()
+  // itself, since some browsers only allow share() within the same tap that
+  // triggered it (a delay here is what caused the earlier "permission denied").
+  function handleShareNow() {
+    if (!readyFile) return;
+    if (!navigator.canShare || !navigator.canShare({ files: [readyFile] })) {
+      alert('Sharing files isn\'t supported in this browser. Use "Download full backup" instead, then upload it to Drive from your Files app.');
+      return;
+    }
+    navigator.share({ files: [readyFile], title: 'Site Register backup', text: 'Site & Project Register — full backup' })
+      .then(() => setReadyFile(null))
+      .catch((e) => {
+        if (e && e.name !== 'AbortError') {
+          console.error(e);
+          alert('Could not open the share menu: ' + (e && e.message ? e.message : 'unknown error') + '. Try "Download full backup" instead.');
+        }
+      });
   }
 
   function handleFile(e) {
@@ -1985,23 +1998,30 @@ function BackupSection({ onExport, onShare, onRestore }) {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Create a backup</div>
         <div style={{ fontSize: 12.5, color: C.inkSoft, marginBottom: 10 }}>
-          Downloads one file with everything in this app — every sub-division, scheme, project, document, photograph and log.
+          Includes everything in this app — every sub-division, scheme, project, document, photograph and log.
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button onClick={handleExportClick} className="btn-primary" disabled={exporting}>
             {exporting ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 6 }} /> : <Download size={13} style={{ marginRight: 6 }} />}
             {exporting ? 'Preparing…' : 'Download full backup'}
           </button>
-          {canShare && (
-            <button onClick={handleShareClick} className="btn-ghost" disabled={sharing}>
-              {sharing ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 6 }} /> : null}
-              {sharing ? 'Preparing…' : 'Share to Drive / WhatsApp / Email…'}
+          {canShare && !readyFile && (
+            <button onClick={handlePrepareShare} className="btn-ghost" disabled={preparing}>
+              {preparing ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 6 }} /> : null}
+              {preparing ? 'Preparing…' : 'Prepare backup to share'}
+            </button>
+          )}
+          {canShare && readyFile && (
+            <button onClick={handleShareNow} className="btn-primary" style={{ background: C.success }}>
+              Share now → Drive / WhatsApp / Email…
             </button>
           )}
         </div>
         <div style={{ fontSize: 11, color: C.khaki, marginTop: 8 }}>
-          {canShare
-            ? '"Share to…" opens your phone\'s share menu so you can send it straight to Google Drive, WhatsApp, email, or anywhere else — no need to dig through your Downloads folder.'
+          {readyFile
+            ? 'Backup is ready — tap "Share now" to open your phone\'s share menu and pick where to send it.'
+            : canShare
+            ? '"Prepare backup to share" builds the file, then a "Share now" button appears — tapping that opens your phone\'s share menu (Drive, WhatsApp, email, etc.).'
             : 'Tip: do this every so often, and after any big batch of new entries.'}
         </div>
       </div>
