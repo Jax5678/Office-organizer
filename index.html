@@ -333,6 +333,7 @@ const NAV_SECTIONS = [
   { id: 'fieldlog', label: 'Field Log', icon: Car },
   { id: 'proposals', label: 'Proposals', icon: FolderPlus },
   { id: 'amp', label: 'Maintenance Plan', icon: CalendarCheck },
+  { id: 'backup', label: 'Backup', icon: Download },
 ];
 
 /* ---------------------------------- helpers --------------------------------- */
@@ -1034,6 +1035,64 @@ function ProjectRegister() {
     downloadWorkbook(wb, `scheme-abstract-${todayStr()}.xlsx`);
   }
 
+  async function exportFullBackup() {
+    setBusyMsg('Preparing backup…');
+    try {
+      const subdivisionsData = {};
+      const allFileIds = new Set();
+      for (const sd of subDivisions) {
+        const app = await storageGet('appdata:' + sd.id);
+        if (app) {
+          subdivisionsData[sd.id] = app;
+          Object.values(app.fileIndex || {}).flat().forEach((id) => allFileIds.add(id));
+        }
+      }
+      const files = {};
+      for (const id of allFileIds) {
+        const meta = await storageGet('filemeta:' + id);
+        const blob = await storageGet('fileblob:' + id);
+        if (meta && blob) files[id] = { meta, blob };
+      }
+      const backup = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        subdivisionsMeta: { list: subDivisions, activeId: activeSubDivisionId },
+        subdivisions: subdivisionsData,
+        files,
+      };
+      const json = JSON.stringify(backup);
+      const blobObj = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blobObj);
+      const a = document.createElement('a');
+      a.href = url; a.download = `site-register-backup-${todayStr()}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      console.error(e);
+      alert('Could not create the backup: ' + (e && e.message ? e.message : 'unknown error'));
+    }
+    setBusyMsg('');
+  }
+
+  async function restoreFullBackup(backup) {
+    setBusyMsg('Restoring backup…');
+    try {
+      for (const [id, data] of Object.entries(backup.subdivisions || {})) {
+        await storageSet('appdata:' + id, data);
+      }
+      for (const [id, entry] of Object.entries(backup.files || {})) {
+        await storageSet('filemeta:' + id, entry.meta);
+        await storageSet('fileblob:' + id, entry.blob);
+      }
+      if (backup.subdivisionsMeta) await storageSet('subdivisions-meta', backup.subdivisionsMeta);
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      setBusyMsg('');
+      alert('Restore failed: ' + (e && e.message ? e.message : 'unknown error'));
+    }
+  }
+
   /* --------------------------------- rendering -------------------------------- */
 
   if (!loaded) {
@@ -1241,6 +1300,9 @@ function ProjectRegister() {
             {section === 'amp' && (
               <ProposalsSection kind="amp" entries={ampEntries} schemes={schemes} subSchemes={subSchemes}
                 onAdd={(meta, files) => addProposalOrAmp('amp', meta, files)} onOpenFile={openFileById} onDelete={deleteAmp} />
+            )}
+            {section === 'backup' && (
+              <BackupSection onExport={exportFullBackup} onRestore={restoreFullBackup} />
             )}
           </div>
         )}
@@ -1826,6 +1888,103 @@ function GrievanceTab({ grievances, onAdd, onUpdate, onDelete }) {
               </div>
             </div>
           ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BackupSection({ onExport, onRestore }) {
+  const [pending, setPending] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  async function handleExportClick() {
+    setExporting(true);
+    await onExport();
+    setExporting(false);
+  }
+
+  function handleFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    setPending(null);
+    setConfirmChecked(false);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || !parsed.version || !parsed.subdivisions) {
+          alert('This does not look like a valid backup file for this app.');
+          return;
+        }
+        setPending(parsed);
+      } catch (err) {
+        alert('Could not read this file — it may be corrupted or not a valid backup file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  async function handleRestoreClick() {
+    setRestoring(true);
+    await onRestore(pending);
+    // page reloads on success; if it fails, restoring stays true briefly then an alert shows
+  }
+
+  const summary = pending ? {
+    subCount: Object.keys(pending.subdivisions || {}).length,
+    projectCount: Object.values(pending.subdivisions || {}).reduce((s, d) => s + ((d.projects || []).length), 0),
+    fileCount: Object.keys(pending.files || {}).length,
+    exportedAt: pending.exportedAt ? new Date(pending.exportedAt).toLocaleString('en-IN') : 'unknown date',
+  } : null;
+
+  return (
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Backup &amp; Restore</div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>
+        Your data lives only on this device. Keep a backup somewhere safe — Google Drive, email to yourself, or a computer — in case this phone is lost, reset, or the browser is uninstalled.
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Create a backup</div>
+        <div style={{ fontSize: 12.5, color: C.inkSoft, marginBottom: 10 }}>
+          Downloads one file with everything in this app — every sub-division, scheme, project, document, photograph and log.
+        </div>
+        <button onClick={handleExportClick} className="btn-primary" disabled={exporting}>
+          {exporting ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 6 }} /> : <Download size={13} style={{ marginRight: 6 }} />}
+          {exporting ? 'Preparing…' : 'Download full backup'}
+        </button>
+        <div style={{ fontSize: 11, color: C.khaki, marginTop: 8 }}>Tip: do this every so often, and after any big batch of new entries.</div>
+      </div>
+
+      <div className="card">
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Restore from a backup</div>
+        <div style={{ fontSize: 12.5, color: C.inkSoft, marginBottom: 10 }}>
+          Choose a backup file to see what's inside before restoring. <strong>Restoring replaces everything currently in this app on this device</strong> — this cannot be undone.
+        </div>
+        <input type="file" accept="application/json,.json" onChange={handleFile} style={{ fontSize: 12.5 }} />
+
+        {summary && (
+          <div style={{ marginTop: 14, padding: 12, background: C.paperDark, borderRadius: 6 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{fileName}</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.inkSoft }}>
+              Exported {summary.exportedAt} · {summary.subCount} sub-division{summary.subCount !== 1 ? 's' : ''} · {summary.projectCount} project{summary.projectCount !== 1 ? 's' : ''} · {summary.fileCount} file{summary.fileCount !== 1 ? 's' : ''}
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.inkSoft, marginTop: 10 }}>
+              <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} />
+              I understand this will replace all data currently in this app
+            </label>
+            <button onClick={handleRestoreClick} disabled={!confirmChecked || restoring} className="btn-ghost"
+              style={{ marginTop: 10, color: confirmChecked ? C.danger : C.khaki, borderColor: confirmChecked ? C.danger : C.line, cursor: confirmChecked && !restoring ? 'pointer' : 'not-allowed' }}>
+              {restoring ? <Loader2 size={13} className="animate-spin" style={{ marginRight: 6 }} /> : null}
+              {restoring ? 'Restoring…' : 'Restore this backup'}
+            </button>
+          </div>
         )}
       </div>
     </div>
